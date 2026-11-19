@@ -1,0 +1,87 @@
+# ================================================================
+# docker-compose.prod.yml
+# SIPLOK — Production VPS Deployment (arsip.arityodev.my.id)
+# ================================================================
+
+services:
+  pgsql:
+    image: postgres:16-alpine
+    container_name: siplok-prod-pgsql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-siplok_db}
+      POSTGRES_USER: ${DB_USERNAME:-siplok_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-siplok_pass123}
+    volumes:
+      - siplok_postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    networks:
+      - siplok-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-siplok_user} -d ${DB_DATABASE:-siplok_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ${DOCKERHUB_USERNAME:-arityo182}/siplok-backend:${IMAGE_TAG:-latest}
+    container_name: siplok-prod-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8002:80"
+    environment:
+      APP_NAME: ${APP_NAME:-SIPLOK}
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${APP_URL:-https://arsip.arityodev.my.id}
+      DB_CONNECTION: pgsql
+      DB_HOST: pgsql
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-siplok_db}
+      DB_USERNAME: ${DB_USERNAME:-siplok_user}
+      DB_PASSWORD: ${DB_PASSWORD:-siplok_pass123}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TTL: ${JWT_TTL:-480}
+    volumes:
+      - siplok_backend_storage:/var/www/html/storage
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+    depends_on:
+      pgsql:
+        condition: service_healthy
+    networks:
+      - siplok-network
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME:-arityo182}/siplok-frontend:${IMAGE_TAG:-latest}
+    container_name: siplok-prod-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://arsip.arityodev.my.id/api}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    depends_on:
+      - backend
+    networks:
+      - siplok-network
+
+networks:
+  siplok-network:
+    driver: bridge
+
+volumes:
+  siplok_postgres_data:
+    driver: local
+  siplok_backend_storage:
+    driver: local

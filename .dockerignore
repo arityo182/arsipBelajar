@@ -1,0 +1,10 @@
+node_modules
+.next
+vendor
+.git
+.github
+.env.local
+storage/*.key
+storage/logs/*
+docs
+*.postman_collection.json

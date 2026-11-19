@@ -1,0 +1,526 @@
+{
+  "info": {
+    "_postman_id": "a9b8c7d6-e5f4-4321-ba98-76543210fedc",
+    "name": "SIPLOK API Collection",
+    "description": "Koleksi API Resmi Sistem Informasi Pelacakan Lokasi Dokumen Fisik Pertanahan — Kantor Pertanahan Kabupaten Banyumas, ATR/BPN",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "AUTH",
+      "description": "Grup endpoint autentikasi dan manajemen sesi petugas",
+      "item": [
+        {
+          "name": "Login Petugas (Admin/User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Ada token\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.data.token).to.be.a('string');",
+                  "  pm.collectionVariables.set(\"token\", json.data.token);",
+                  "  console.log(\"Token tersimpan:\", json.data.token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Autentikasi akun petugas dan penyimpanan otomatis JWT token ke koleksi variabel."
+          }
+        },
+        {
+          "name": "Logout Petugas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 2xx\", () => { pm.response.to.be.success; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Mencabut token aktif dari server."
+          }
+        },
+        {
+          "name": "Get Profil Aktif (Me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 2xx\", () => { pm.response.to.be.success; });",
+                  "pm.test(\"Ada field data\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('data');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Mengambil profil pengguna yang terotentikasi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "DOKUMEN",
+      "description": "Grup endpoint manipulasi data dokumen pertanahan dan mutasi fisik",
+      "item": [
+        {
+          "name": "Daftar Dokumen (Search & Paginate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 2xx\", () => { pm.response.to.be.success; });",
+                  "pm.test(\"Ada field data\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('data');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dokumen?search=Budi&page=1&per_page=15",
+              "host": ["{{base_url}}"],
+              "path": ["dokumen"],
+              "query": [
+                { "key": "search", "value": "Budi" },
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "15" }
+              ]
+            },
+            "description": "Mengambil daftar berkas terpaginasi dengan parameter pencarian Nomor GU, NIB, atau Pemilik."
+          }
+        },
+        {
+          "name": "Tambah Dokumen Baru",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201 Created\", () => { pm.response.to.have.status(201); });",
+                  "pm.test(\"Ada field data\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('data');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomor_gu\": \"GU-0888/2024\",\n  \"tahun\": 2024,\n  \"nib\": \"33020101999\",\n  \"jenis_dokumen\": \"Sertipikat\",\n  \"nama_pemilik\": \"Tri Maryati\",\n  \"desa_id\": 1,\n  \"boks_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/dokumen",
+              "host": ["{{base_url}}"],
+              "path": ["dokumen"]
+            },
+            "description": "Menyimpan berkas warkah baru ke boks fisik tertentu."
+          }
+        },
+        {
+          "name": "Check Ketersediaan Nomor GU",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 2xx\", () => { pm.response.to.be.success; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dokumen/check-gu?nomor_gu=GU-0101/2021",
+              "host": ["{{base_url}}"],
+              "path": ["dokumen", "check-gu"],
+              "query": [
+                { "key": "nomor_gu", "value": "GU-0101/2021" }
+              ]
+            },
+            "description": "Validasi real-time status duplikasi Nomor GU."
+          }
+        },
+        {
+          "name": "Detail Dokumen & Riwayat Mutasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 2xx\", () => { pm.response.to.be.success; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dokumen/1",
+              "host": ["{{base_url}}"],
+              "path": ["dokumen", "1"]
+            },
+            "description": "Mendapatkan rincian objek tanah, lokasi hierarkis, dan 20 log mutasi terakhir."
+          }
+        },
+        {
+          "name": "Pindah Lokasi Boks (Pindah Rak)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 2xx\", () => { pm.response.to.be.success; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"boks_id_baru\": 3,\n  \"alasan\": \"Reorganisasi lemari rak bulan Desember untuk warkah kadastral\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/dokumen/1/pindah",
+              "host": ["{{base_url}}"],
+              "path": ["dokumen", "1", "pindah"]
+            },
+            "description": "Memindahkan fisik dokumen ke boks baru dan mencatat alasan mutasi."
+          }
+        },
+        {
+          "name": "Update Status Fisik Dokumen",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 2xx\", () => { pm.response.to.be.success; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status_fisik\": \"DIPINJAM\",\n  \"keterangan\": \"Dipinjam oleh Seksi Survei untuk peninjauan batas sengketa bidang tanah\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/dokumen/1/status",
+              "host": ["{{base_url}}"],
+              "path": ["dokumen", "1", "status"]
+            },
+            "description": "Memperbarui status fisik berkas (TERSEDIA, DIPINJAM, RUSAK, HILANG)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "LOKASI",
+      "description": "Grup endpoint hierarki sarana fisik ruang arsip pertanahan",
+      "item": [
+        {
+          "name": "Get Daftar Ruang",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lokasi/ruang",
+              "host": ["{{base_url}}"],
+              "path": ["lokasi", "ruang"]
+            }
+          }
+        },
+        {
+          "name": "Get Daftar Rak by Ruang",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lokasi/rak?ruang_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["lokasi", "rak"],
+              "query": [{ "key": "ruang_id", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "Get Daftar Shaf by Rak",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lokasi/shaf?rak_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["lokasi", "shaf"],
+              "query": [{ "key": "rak_id", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "Get Daftar Boks by Shaf (Beserta Kapasitas)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lokasi/boks?shaf_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["lokasi", "boks"],
+              "query": [{ "key": "shaf_id", "value": "1" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "WILAYAH",
+      "description": "Grup endpoint data wilayah yurisdiksi Kabupaten Banyumas",
+      "item": [
+        {
+          "name": "Get Daftar Kecamatan Banyumas",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/wilayah/kecamatan",
+              "host": ["{{base_url}}"],
+              "path": ["wilayah", "kecamatan"]
+            }
+          }
+        },
+        {
+          "name": "Get Daftar Desa by Kecamatan",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/wilayah/desa?kecamatan_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["wilayah", "desa"],
+              "query": [{ "key": "kecamatan_id", "value": "1" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ADMIN",
+      "description": "Grup endpoint hak akses khusus Administrator",
+      "item": [
+        {
+          "name": "Get Daftar Pengguna Sistem",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users?page=1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"],
+              "query": [{ "key": "page", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "Tambah Staf Pengguna Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"Petugas Baru BPN\",\n  \"username\": \"petugas_baru\",\n  \"password\": \"password123\",\n  \"role\": \"USER\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "Update Status Aktif / Role Pengguna",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aktif\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/2",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2"]
+            }
+          }
+        },
+        {
+          "name": "Reset Password Pengguna",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/2/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2", "reset-password"]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Trail Log Aktivitas",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/logs?page=1&search=",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "logs"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "search", "value": "" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

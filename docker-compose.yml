@@ -1,0 +1,113 @@
+# ================================================================
+# docker-compose.yml
+# SIPLOK — Kantah Kabupaten Banyumas, ATR/BPN
+# ================================================================
+
+services:
+  # --------------------------------------------------------------
+  # DATABASE: PostgreSQL 16
+  # --------------------------------------------------------------
+  pgsql:
+    image: postgres:16-alpine
+    container_name: siplok-pgsql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-siplok_db}
+      POSTGRES_USER: ${DB_USERNAME:-siplok_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-siplok_pass123}
+    ports:
+      - "${PGSQL_PORT:-5432}:5432"
+    volumes:
+      - siplok-postgres-data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - siplok-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-siplok_user} -d ${DB_DATABASE:-siplok_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------
+  # BACKEND: Laravel 13 + PHP 8.3-FPM + Nginx (Alpine)
+  # --------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: siplok-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:80"
+    environment:
+      APP_NAME: ${APP_NAME:-SIPLOK}
+      APP_ENV: ${APP_ENV:-local}
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      DB_CONNECTION: pgsql
+      DB_HOST: pgsql
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-siplok_db}
+      DB_USERNAME: ${DB_USERNAME:-siplok_user}
+      DB_PASSWORD: ${DB_PASSWORD:-siplok_pass123}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TTL: ${JWT_TTL:-480}
+    volumes:
+      - .:/var/www/html
+      - siplok-backend-storage:/var/www/html/storage
+    depends_on:
+      pgsql:
+        condition: service_healthy
+    networks:
+      - siplok-network
+
+  # --------------------------------------------------------------
+  # FRONTEND: Next.js Node 20 (Alpine)
+  # --------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: siplok-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    networks:
+      - siplok-network
+    depends_on:
+      - backend
+
+  # --------------------------------------------------------------
+  # PGADMIN: PostgreSQL GUI Manager
+  # --------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: siplok-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@siplok.lan}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "${PGADMIN_PORT:-5050}:5050"
+    networks:
+      - siplok-network
+    depends_on:
+      pgsql:
+        condition: service_healthy
+
+# ----------------------------------------------------------------
+# NETWORKS & VOLUMES
+# ----------------------------------------------------------------
+networks:
+  siplok-network:
+    driver: bridge
+
+volumes:
+  siplok-postgres-data:
+    driver: local
+  siplok-backend-storage:
+    driver: local

@@ -1,0 +1,30 @@
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+# Environment files
+.env
+.env.backup
+.env.production
+.env.local
+.env.*.local
+deploy/.env*
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.vscode
+.DS_Store
+Thumbs.db
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
