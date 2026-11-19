@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Seluruh tes CI dijalankan terlebih dahulu sebagai reusable workflow.
-  # Build dan deploy hanya berjalan jika seluruh job CI lulus 100%.
+  # Semua test dijalankan sebagai reusable workflow. Build dan deploy hanya
+  # berjalan jika seluruh job CI lulus.
   ci:
     uses: ./.github/workflows/ci.yml
 
@@ -49,18 +49,16 @@ jobs:
           else
             echo "channel=staging" >> "$GITHUB_OUTPUT"
           fi
-          echo "sha_tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push Docker Image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -73,78 +71,124 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
-  deploy:
-    name: Deploy to EC2 VPS (${{ github.ref_name }})
+  deploy-staging:
+    name: Deploy to Staging
     needs: build-push
+    if: github.ref_name == 'develop'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: staging
+      url: https://arsip.arityodev.my.id
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set deployment variables
-        id: vars
-        run: |
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            echo "channel=latest" >> "$GITHUB_OUTPUT"
-          else
-            echo "channel=staging" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Copy compose file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: deploy/docker-compose.prod.yml
+          target: ~/siplok/
+          strip_components: 1
 
-      - name: Deploy to VPS via SSH
+      - name: Deploy staging
+        uses: appleboy/ssh-action@v1
         env:
-          KEY_EC2: ${{ secrets.EC2_SSH_KEY }}
-          KEY_VPS: ${{ secrets.VPS_SSH_KEY }}
-          HOST_EC2: ${{ secrets.EC2_HOST }}
-          HOST_VPS: ${{ secrets.VPS_HOST }}
-          USER_EC2: ${{ secrets.EC2_USER }}
-          USER_VPS: ${{ secrets.VPS_USER }}
-          IMAGE_TAG: ${{ steps.vars.outputs.channel }}
-        run: |
-          set -euo pipefail
-
-          # 1. Resolusi Kunci Privat SSH
-          SSH_KEY="${KEY_EC2:-$KEY_VPS}"
-          if [ -z "$SSH_KEY" ]; then
-            echo "::error::Secret EC2_SSH_KEY atau VPS_SSH_KEY tidak ditemukan di GitHub Repository Secrets!"
-            exit 1
-          fi
-
-          # 2. Resolusi Host & User SSH (Default: 13.218.77.9 & ubuntu)
-          TARGET_HOST="${HOST_EC2:-${HOST_VPS:-13.218.77.9}}"
-          TARGET_USER="${USER_EC2:-${USER_VPS:-ubuntu}}"
-
-          echo "Menyiapkan autentikasi SSH untuk ${TARGET_USER}@${TARGET_HOST}..."
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-          echo "Menyalin docker-compose.prod.yml ke VPS..."
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deploy/docker-compose.prod.yml "${TARGET_USER}@${TARGET_HOST}":~/siplok/docker-compose.yml
-
-          echo "Menjalankan pembaruan kontainer di VPS..."
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "${TARGET_USER}@${TARGET_HOST}" "
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DOCKERHUB_USERNAME,IMAGE_TAG
+          script: |
             set -euo pipefail
             cd ~/siplok
-            test -f .env || { echo 'ERROR: ~/siplok/.env belum ditemukan!'; exit 1; }
+            test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
 
-            echo 'Pulling latest docker images...'
-            docker compose pull
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
 
-            echo 'Upgrading containers...'
-            docker compose up -d --remove-orphans
-
-            echo 'Verifikasi kesehatan backend & frontend...'
-            for i in \$(seq 1 30); do
-              if curl -fsS http://127.0.0.1:8002/api/auth/me >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8002/ >/dev/null 2>&1; then
-                echo \"Backend SIPLOK siap setelah \${i} percobaan\"
+            ok=0
+            for i in $(seq 1 36); do
+              if curl -fsS http://127.0.0.1:8002/api/publik/cek >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8002/ >/dev/null 2>&1; then
+                ok=1
+                echo "Backend staging sehat setelah ${i} percobaan"
                 break
               fi
-              sleep 3
+              sleep 5
             done
 
-            curl -fsS -o /dev/null http://127.0.0.1:3002/ || true
-            docker compose ps
-            docker system prune -f
-            echo '=== Deployment SIPLOK Sukses Selesai ==='
-          "
+            if [ "$ok" -ne 1 ]; then
+              docker compose -f docker-compose.prod.yml ps
+              docker compose -f docker-compose.prod.yml logs --tail=100 backend
+              exit 1
+            fi
+
+            curl -fsS -o /dev/null http://127.0.0.1:3002/
+            docker compose -f docker-compose.prod.yml ps
+            echo "Staging deployed: IMAGE_TAG=${IMAGE_TAG}"
+
+  deploy-production:
+    name: Deploy to Production
+    needs: build-push
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://arsip.arityodev.my.id
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy compose file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: deploy/docker-compose.prod.yml
+          target: ~/siplok/
+          strip_components: 1
+
+      - name: Deploy production
+        uses: appleboy/ssh-action@v1
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DOCKERHUB_USERNAME,IMAGE_TAG
+          script: |
+            set -euo pipefail
+            cd ~/siplok
+            test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
+
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+
+            ok=0
+            for i in $(seq 1 36); do
+              if curl -fsS http://127.0.0.1:8002/api/publik/cek >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8002/ >/dev/null 2>&1; then
+                ok=1
+                echo "Backend production sehat setelah ${i} percobaan"
+                break
+              fi
+              sleep 5
+            done
+
+            if [ "$ok" -ne 1 ]; then
+              docker compose -f docker-compose.prod.yml ps
+              docker compose -f docker-compose.prod.yml logs --tail=100 backend
+              exit 1
+            fi
+
+            curl -fsS -o /dev/null http://127.0.0.1:3002/
+            docker compose -f docker-compose.prod.yml ps
+            echo "Production deployed: IMAGE_TAG=${IMAGE_TAG}"
