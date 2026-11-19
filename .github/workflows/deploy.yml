@@ -78,20 +78,26 @@ jobs:
     needs: build-push
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-      url: https://arsip.arityodev.my.id
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set deployment variables
+        id: vars
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "channel=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=staging" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Copy docker-compose file to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.EC2_HOST || secrets.VPS_HOST }}
-          username: ${{ secrets.EC2_USER || secrets.VPS_USER }}
-          key: ${{ secrets.EC2_SSH_KEY || secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          host: ${{ coalesce(secrets.EC2_HOST, secrets.VPS_HOST) }}
+          username: ${{ coalesce(secrets.EC2_USER, secrets.VPS_USER) }}
+          key: ${{ coalesce(secrets.EC2_SSH_KEY, secrets.VPS_SSH_KEY) }}
+          port: ${{ coalesce(secrets.VPS_PORT, '22') }}
           source: deploy/docker-compose.prod.yml
           target: ~/siplok/
           strip_components: 1
@@ -100,12 +106,12 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          IMAGE_TAG: ${{ github.ref_name == 'main' && 'latest' || 'staging' }}
+          IMAGE_TAG: ${{ steps.vars.outputs.channel }}
         with:
-          host: ${{ secrets.EC2_HOST || secrets.VPS_HOST }}
-          username: ${{ secrets.EC2_USER || secrets.VPS_USER }}
-          key: ${{ secrets.EC2_SSH_KEY || secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          host: ${{ coalesce(secrets.EC2_HOST, secrets.VPS_HOST) }}
+          username: ${{ coalesce(secrets.EC2_USER, secrets.VPS_USER) }}
+          key: ${{ coalesce(secrets.EC2_SSH_KEY, secrets.VPS_SSH_KEY) }}
+          port: ${{ coalesce(secrets.VPS_PORT, '22') }}
           envs: DOCKERHUB_USERNAME,IMAGE_TAG
           script: |
             set -euo pipefail
