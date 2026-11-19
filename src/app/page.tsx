@@ -14,6 +14,8 @@ import {
   Landmark,
   CheckCircle,
   ExternalLink,
+  FileText,
+  Search,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -145,46 +147,95 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* KOLOM KANAN: Mock Visual Interaktif */}
-          <div>
-            <div className="bg-white shadow-xl rounded-2xl p-6 sm:p-7 border border-border-color space-y-4">
-              <div>
-                <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Nomor GU atau NIB
+          {/* KOLOM KANAN: Ilustrasi Dokumen Pertanahan Resmi */}
+          <div className="relative">
+            {/* Background Glow */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-accent/20 to-primary/20 rounded-3xl blur-xl opacity-60 pointer-events-none" />
+
+            <div className="relative bg-white shadow-xl rounded-2xl p-6 sm:p-7 border border-border-color space-y-5">
+              {/* Header Kartu Ilustrasi */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-sm text-text-main">
+                      Arsip Warkah & Dokumen
+                    </h3>
+                    <p className="text-[11px] text-text-secondary">
+                      Kantah Kabupaten Banyumas
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center gap-1">
+                  <Shield className="w-3 h-3 text-amber-600" /> Resmi BPN
                 </span>
-                <div className="pointer-events-none bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 font-mono text-sm text-gray-700">
-                  GU-0124/2024
+              </div>
+
+              {/* Grafis Ilustrasi Lembar Dokumen Pertanahan */}
+              <div className="bg-gradient-to-br from-amber-50/40 via-white to-slate-50 rounded-xl p-5 border border-amber-200/60 shadow-inner relative overflow-hidden space-y-3.5">
+                {/* Watermark Logo */}
+                <div className="absolute -right-4 -bottom-4 w-28 h-28 bg-primary/5 rounded-full flex items-center justify-center pointer-events-none">
+                  <Landmark className="w-16 h-16 text-primary/10" />
+                </div>
+
+                {/* Header Dokumen Simbolik */}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                    BPN
+                  </div>
+                  <div className="space-y-1 flex-1">
+                    <div className="h-2 w-32 bg-gray-300 rounded-full" />
+                    <div className="h-1.5 w-20 bg-gray-200 rounded-full" />
+                  </div>
+                </div>
+
+                {/* Garis-garis Simbol Dokumen (Bukan Data Nyata) */}
+                <div className="space-y-2 py-1">
+                  <div className="h-2 w-full bg-gray-200/80 rounded-full" />
+                  <div className="h-2 w-4/5 bg-gray-200/70 rounded-full" />
+                  <div className="h-2 w-2/3 bg-gray-200/60 rounded-full" />
+                </div>
+
+                {/* Kategori Dokumen yang Dikelola */}
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                    <span>Gambar Ukur (GU)</span>
+                  </div>
+                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                    <span>Surat Ukur (SU)</span>
+                  </div>
+                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                    <span>Warkah Tanah</span>
+                  </div>
+                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                    <span>Sertipikat Hak</span>
+                  </div>
                 </div>
               </div>
 
+              {/* Panduan Ramah untuk Pengguna Awam */}
+              <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl flex items-start gap-2.5 text-blue-900 text-xs">
+                <Clock className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  Masukkan nomor <strong>GU</strong> atau <strong>NIB</strong> pada formulir pencarian untuk mengetahui ketersediaan fisik dokumen Anda di kantor pertanahan secara real-time.
+                </p>
+              </div>
+
+              {/* Tombol Akses Pencarian */}
               <button
                 type="button"
-                className="w-full pointer-events-none bg-primary text-white font-semibold py-2.5 rounded-lg text-sm"
+                onClick={() => router.push('/cek-dokumen')}
+                className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-light text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
-                Cari
+                <Search className="w-4 h-4" />
+                <span>Buka Formulir Pencarian Dokumen</span>
               </button>
-
-              <div className="pt-3 border-t border-dashed border-gray-200">
-                <span className="text-xs text-gray-400 block mb-2 font-medium">Contoh hasil:</span>
-                <div className="border-l-4 border-green-500 rounded-lg p-4 bg-white shadow-sm border border-gray-100 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-primary text-sm">GU-0124/2024</span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-800">
-                      Tersedia
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-600 font-medium">Sertipikat • 2024</div>
-                  <div className="text-xs text-gray-500">Purwanegara, Kec. Purwokerto Utara</div>
-                  <div className="bg-green-50 rounded-lg p-3 flex items-center gap-2 text-green-900 text-xs font-semibold mt-2 border border-green-200/60">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <span>Tersedia di Kantor</span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-gray-400 text-xs text-center pt-1">
-                * Contoh tampilan hasil pencarian
-              </p>
             </div>
           </div>
         </div>
