@@ -91,48 +91,53 @@ jobs:
             echo "channel=staging" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Copy docker-compose file to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ coalesce(secrets.EC2_HOST, secrets.VPS_HOST) }}
-          username: ${{ coalesce(secrets.EC2_USER, secrets.VPS_USER) }}
-          key: ${{ coalesce(secrets.EC2_SSH_KEY, secrets.VPS_SSH_KEY) }}
-          port: ${{ coalesce(secrets.VPS_PORT, '22') }}
-          source: deploy/docker-compose.prod.yml
-          target: ~/siplok/
-          strip_components: 1
-
-      - name: Deploy & Rolling Update via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy to VPS via SSH
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          KEY_EC2: ${{ secrets.EC2_SSH_KEY }}
+          KEY_VPS: ${{ secrets.VPS_SSH_KEY }}
+          HOST_EC2: ${{ secrets.EC2_HOST }}
+          HOST_VPS: ${{ secrets.VPS_HOST }}
+          USER_EC2: ${{ secrets.EC2_USER }}
+          USER_VPS: ${{ secrets.VPS_USER }}
           IMAGE_TAG: ${{ steps.vars.outputs.channel }}
-        with:
-          host: ${{ coalesce(secrets.EC2_HOST, secrets.VPS_HOST) }}
-          username: ${{ coalesce(secrets.EC2_USER, secrets.VPS_USER) }}
-          key: ${{ coalesce(secrets.EC2_SSH_KEY, secrets.VPS_SSH_KEY) }}
-          port: ${{ coalesce(secrets.VPS_PORT, '22') }}
-          envs: DOCKERHUB_USERNAME,IMAGE_TAG
-          script: |
+        run: |
+          set -euo pipefail
+
+          # 1. Resolusi Kunci Privat SSH
+          SSH_KEY="${KEY_EC2:-$KEY_VPS}"
+          if [ -z "$SSH_KEY" ]; then
+            echo "::error::Secret EC2_SSH_KEY atau VPS_SSH_KEY tidak ditemukan di GitHub Repository Secrets!"
+            exit 1
+          fi
+
+          # 2. Resolusi Host & User SSH (Default: 13.218.77.9 & ubuntu)
+          TARGET_HOST="${HOST_EC2:-${HOST_VPS:-13.218.77.9}}"
+          TARGET_USER="${USER_EC2:-${USER_VPS:-ubuntu}}"
+
+          echo "Menyiapkan autentikasi SSH untuk ${TARGET_USER}@${TARGET_HOST}..."
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          echo "Menyalin docker-compose.prod.yml ke VPS..."
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deploy/docker-compose.prod.yml "${TARGET_USER}@${TARGET_HOST}":~/siplok/docker-compose.yml
+
+          echo "Menjalankan pembaruan kontainer di VPS..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "${TARGET_USER}@${TARGET_HOST}" "
             set -euo pipefail
-            echo "=== Memulai Deployment SIPLOK di VPS ==="
-            cd ~/siplok || exit 1
-            test -f .env || { echo "ERROR: ~/siplok/.env belum ditemukan!"; exit 1; }
+            cd ~/siplok
+            test -f .env || { echo 'ERROR: ~/siplok/.env belum ditemukan!'; exit 1; }
 
-            cp -f docker-compose.prod.yml docker-compose.yml 2>/dev/null || true
-
-            echo "Pulling latest docker images..."
+            echo 'Pulling latest docker images...'
             docker compose pull
 
-            echo "Upgrading containers..."
+            echo 'Upgrading containers...'
             docker compose up -d --remove-orphans
 
-            echo "Verifikasi kesehatan backend & frontend..."
-            ok=0
-            for i in $(seq 1 30); do
+            echo 'Verifikasi kesehatan backend & frontend...'
+            for i in \$(seq 1 30); do
               if curl -fsS http://127.0.0.1:8002/api/auth/me >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8002/ >/dev/null 2>&1; then
-                ok=1
-                echo "Backend SIPLOK siap setelah ${i} percobaan"
+                echo \"Backend SIPLOK siap setelah \${i} percobaan\"
                 break
               fi
               sleep 3
@@ -141,4 +146,5 @@ jobs:
             curl -fsS -o /dev/null http://127.0.0.1:3002/ || true
             docker compose ps
             docker system prune -f
-            echo "=== Deployment SIPLOK Sukses Selesai ==="
+            echo '=== Deployment SIPLOK Sukses Selesai ==='
+          "
