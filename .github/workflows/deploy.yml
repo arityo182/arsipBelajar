@@ -112,6 +112,8 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
 
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force || true
+
             ok=0
             for i in $(seq 1 36); do
               if curl -fsS http://127.0.0.1:8002/api/publik/cek >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8002/ >/dev/null 2>&1; then
@@ -172,6 +174,8 @@ jobs:
 
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force || true
 
             ok=0
             for i in $(seq 1 36); do
