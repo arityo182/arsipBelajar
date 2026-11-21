@@ -119,7 +119,7 @@ jobs:
 
             ok=0
             for i in $(seq 1 36); do
-              if curl -fsS http://127.0.0.1:8002/api/publik/cek >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8002/ >/dev/null 2>&1; then
+              if curl -fsS "http://127.0.0.1:8002/api/publik/cek?nomor_gu=HEALTHCHECK" >/dev/null 2>&1 || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/api/publik/cek | grep -qE "200|422|429"; then
                 ok=1
                 echo "Backend staging sehat setelah ${i} percobaan"
                 break
@@ -184,7 +184,7 @@ jobs:
 
             ok=0
             for i in $(seq 1 36); do
-              if curl -fsS http://127.0.0.1:8002/api/publik/cek >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8002/ >/dev/null 2>&1; then
+              if curl -fsS "http://127.0.0.1:8002/api/publik/cek?nomor_gu=HEALTHCHECK" >/dev/null 2>&1 || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/api/publik/cek | grep -qE "200|422|429"; then
                 ok=1
                 echo "Backend production sehat setelah ${i} percobaan"
                 break
