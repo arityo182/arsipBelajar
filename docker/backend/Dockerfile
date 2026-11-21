@@ -8,10 +8,10 @@ FROM php:8.3-fpm-alpine
 # Set working directory
 WORKDIR /var/www/html
 
-# Install build dependencies dan runtime libraries
+# Install runtime libraries
 RUN apk update && apk add --no-cache \
-    postgresql-dev \
-    libzip-dev \
+    libpq \
+    libzip \
     zip \
     unzip \
     curl \
@@ -20,8 +20,12 @@ RUN apk update && apk add --no-cache \
     git \
     bash
 
-# Install PHP extensions: pdo_pgsql, pgsql, zip, opcache, bcmath
-RUN docker-php-ext-install pdo_pgsql pgsql zip opcache bcmath
+# Install temporary build dependencies, compile PHP extensions, then purge compiler toolchain
+RUN apk add --no-cache --virtual .build-deps \
+    postgresql-dev \
+    libzip-dev \
+    && docker-php-ext-install pdo_pgsql pgsql zip opcache bcmath \
+    && apk del .build-deps
 
 # Ambil binary Composer dari image official
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

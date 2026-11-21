@@ -110,8 +110,10 @@ jobs:
             cd ~/siplok
             test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
 
+            docker image prune -f || true
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+            docker image prune -f || true
 
             docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force || true
 
@@ -173,8 +175,10 @@ jobs:
             cd ~/siplok
             test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
 
+            docker image prune -f || true
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+            docker image prune -f || true
 
             docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force || true
 
