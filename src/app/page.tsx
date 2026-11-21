@@ -14,8 +14,6 @@ import {
   Landmark,
   CheckCircle,
   ExternalLink,
-  FileText,
-  Search,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -147,97 +145,152 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* KOLOM KANAN: Ilustrasi Dokumen Pertanahan Resmi */}
+          {/* KOLOM KANAN: Preview Hasil Statis Bertanda CONTOH */}
           <div className="relative">
-            {/* Background Glow */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-accent/20 to-primary/20 rounded-3xl blur-xl opacity-60 pointer-events-none" />
 
-            <div className="relative bg-white shadow-xl rounded-2xl p-6 sm:p-7 border border-border-color space-y-5">
-              {/* Header Kartu Ilustrasi */}
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
-                    <FileText className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-sm text-text-main">
-                      Arsip Warkah & Dokumen
-                    </h3>
-                    <p className="text-[11px] text-text-secondary">
-                      Kantah Kabupaten Banyumas
-                    </p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-amber-600" /> Resmi BPN
+            {/* Label CONTOH — pojok kiri atas, mencolok */}
+            <div className="absolute -top-3 -left-3 z-10
+                            bg-yellow-400 text-yellow-900
+                            text-xs font-black px-3 py-1
+                            rounded-full shadow-md
+                            rotate-[-3deg]
+                            border-2 border-yellow-600
+                            tracking-wider uppercase">
+              ✦ Contoh Tampilan
+            </div>
+
+            {/* Card preview — tidak ada input, tidak ada tombol */}
+            <div className="bg-white rounded-2xl shadow-xl
+                            border-2 border-dashed border-gray-200
+                            p-6 relative overflow-hidden">
+
+              {/* Watermark diagonal di background */}
+              <div className="absolute inset-0 flex items-center
+                              justify-center pointer-events-none
+                              select-none opacity-[0.04]
+                              rotate-[-30deg]">
+                <span className="text-6xl font-black text-gray-900
+                                 whitespace-nowrap tracking-widest">
+                  CONTOH
                 </span>
               </div>
 
-              {/* Grafis Ilustrasi Lembar Dokumen Pertanahan */}
-              <div className="bg-gradient-to-br from-amber-50/40 via-white to-slate-50 rounded-xl p-5 border border-amber-200/60 shadow-inner relative overflow-hidden space-y-3.5">
-                {/* Watermark Logo */}
-                <div className="absolute -right-4 -bottom-4 w-28 h-28 bg-primary/5 rounded-full flex items-center justify-center pointer-events-none">
-                  <Landmark className="w-16 h-16 text-primary/10" />
+              {/* Label atas */}
+              <p className="text-xs text-gray-400 font-medium mb-4
+                            flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full
+                                 bg-green-400 animate-pulse" />
+                Begini tampilan hasil jika dokumen ditemukan:
+              </p>
+
+              {/* Card hasil dokumen 1 — TERSEDIA */}
+              <div className="border-l-4 border-green-500
+                              bg-white rounded-xl shadow-sm
+                              p-4 mb-3">
+
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-mono font-bold text-primary
+                                  text-base">
+                      GU-0124/2024
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Sertipikat • 2024
+                    </p>
+                  </div>
+                  <span className="bg-green-100 text-green-700
+                                   text-xs font-semibold px-2 py-1
+                                   rounded-full border border-green-200">
+                    Tersedia
+                  </span>
                 </div>
 
-                {/* Header Dokumen Simbolik */}
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                    BPN
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-400">NIB</p>
+                    <p className="text-xs font-semibold font-mono">
+                      33020101001
+                    </p>
                   </div>
-                  <div className="space-y-1 flex-1">
-                    <div className="h-2 w-32 bg-gray-300 rounded-full" />
-                    <div className="h-1.5 w-20 bg-gray-200 rounded-full" />
+                  <div>
+                    <p className="text-xs text-gray-400">Wilayah</p>
+                    <p className="text-xs font-semibold">
+                      Purwanegara, Banyumas
+                    </p>
                   </div>
                 </div>
 
-                {/* Garis-garis Simbol Dokumen (Bukan Data Nyata) */}
-                <div className="space-y-2 py-1">
-                  <div className="h-2 w-full bg-gray-200/80 rounded-full" />
-                  <div className="h-2 w-4/5 bg-gray-200/70 rounded-full" />
-                  <div className="h-2 w-2/3 bg-gray-200/60 rounded-full" />
-                </div>
-
-                {/* Kategori Dokumen yang Dikelola */}
-                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
-                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                    <span>Gambar Ukur (GU)</span>
-                  </div>
-                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
-                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                    <span>Surat Ukur (SU)</span>
-                  </div>
-                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
-                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                    <span>Warkah Tanah</span>
-                  </div>
-                  <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-100 flex items-center gap-1.5 text-gray-700">
-                    <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                    <span>Sertipikat Hak</span>
-                  </div>
+                <div className="bg-green-50 border border-green-200
+                                rounded-lg p-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-600 flex-shrink-0"
+                       fill="none" viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                          strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-semibold text-green-700">
+                    Tersedia di Kantor
+                  </span>
                 </div>
               </div>
 
-              {/* Panduan Ramah untuk Pengguna Awam */}
-              <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl flex items-start gap-2.5 text-blue-900 text-xs">
-                <Clock className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                <p className="leading-relaxed">
-                  Masukkan nomor <strong>GU</strong> atau <strong>NIB</strong> pada formulir pencarian untuk mengetahui ketersediaan fisik dokumen Anda di kantor pertanahan secara real-time.
+              {/* Card hasil dokumen 2 — DIPINJAM */}
+              <div className="border-l-4 border-yellow-400
+                              bg-white rounded-xl shadow-sm
+                              p-4 mb-4 opacity-75">
+
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-mono font-bold text-primary
+                                  text-base">
+                      GU-0987/2023
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Warkah • 2023
+                    </p>
+                  </div>
+                  <span className="bg-yellow-100 text-yellow-700
+                                   text-xs font-semibold px-2 py-1
+                                   rounded-full border border-yellow-200">
+                    Dipinjam
+                  </span>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200
+                                rounded-lg p-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-yellow-600 flex-shrink-0"
+                       fill="none" viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span className="text-sm font-semibold text-yellow-700">
+                    Sedang Dalam Proses
+                  </span>
+                </div>
+              </div>
+
+              {/* Keterangan di bawah */}
+              <div className="bg-blue-50 border border-blue-100
+                              rounded-lg px-4 py-3
+                              flex items-start gap-2">
+                <svg className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5"
+                     fill="none" viewBox="0 0 24 24"
+                     stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18
+                           0 9 9 0 0118 0z"/>
+                </svg>
+                <p className="text-xs text-blue-600 leading-relaxed">
+                  Klik tombol <strong>"Cek Dokumen Saya"</strong> di kiri
+                  untuk mencari dokumen Anda yang sesungguhnya.
                 </p>
               </div>
 
-              {/* Tombol Akses Pencarian */}
-              <button
-                type="button"
-                onClick={() => router.push('/cek-dokumen')}
-                className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-light text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-md hover:shadow-lg transition-all cursor-pointer"
-              >
-                <Search className="w-4 h-4" />
-                <span>Buka Formulir Pencarian Dokumen</span>
-              </button>
-            </div>
-          </div>
+            </div>{/* end card */}
+          </div>{/* end relative */}
         </div>
       </section>
 
