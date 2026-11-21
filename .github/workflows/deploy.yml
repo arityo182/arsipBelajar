@@ -1,4 +1,5 @@
 name: Deploy
+# Auto-deployment SIPLOK (Synchronized with VPS_* credentials)
 
 on:
   push:
