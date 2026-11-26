@@ -36,8 +36,28 @@ class DokumenSeeder extends Seeder
         $records = $jsonData['records'] ?? [];
 
         foreach ($records as $item) {
-            $desa = $desas->get($item['desa']);
-            $kecamatan = $desa ? $desa->kecamatan : $kecamatans->get($item['kecamatan']);
+            $kecNama = trim((string) ($item['kecamatan'] ?? ''));
+            $desaNama = trim((string) ($item['desa'] ?? ''));
+
+            $kecamatan = $kecamatans->get($kecNama);
+            if (!$kecamatan && $kecNama !== '') {
+                $kecamatan = Kecamatan::firstOrCreate(['nama' => $kecNama]);
+                $kecamatans->put($kecNama, $kecamatan);
+            }
+
+            $desa = $desas->get($desaNama);
+            if (!$desa && $desaNama !== '' && $kecamatan) {
+                $desa = Desa::firstOrCreate([
+                    'kecamatan_id' => $kecamatan->id,
+                    'nama'         => $desaNama,
+                ]);
+                $desa->setRelation('kecamatan', $kecamatan);
+                $desas->put($desaNama, $desa);
+            }
+
+            if (!$desa) {
+                continue;
+            }
 
             Dokumen::updateOrCreate(
                 ['nomor_di302' => (string) $item['nomor_di302']],
