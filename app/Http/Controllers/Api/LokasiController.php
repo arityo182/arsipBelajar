@@ -7,6 +7,7 @@ use App\Models\Ruang;
 use App\Models\Rak;
 use App\Models\Shaf;
 use App\Models\Boks;
+use App\Models\Album;
 use Illuminate\Http\Request;
 
 class LokasiController extends Controller
@@ -45,6 +46,52 @@ class LokasiController extends Controller
             'data'    => $rak,
             'message' => 'Daftar rak berhasil diambil',
         ], 200);
+    }
+
+    /**
+     * Dapatkan daftar album berdasarkan rak_id.
+     * GET /api/lokasi/album?rak_id=1
+     */
+    public function album(Request $request)
+    {
+        $query = Album::with('rak')
+            ->withCount(['dokumens' => function ($q) {
+                $q->whereNull('deleted_at');
+            }]);
+
+        if ($request->filled('rak_id')) {
+            $query->where('rak_id', $request->query('rak_id'));
+        }
+
+        $albums = $query->orderBy('nomor_album', 'asc')->get();
+
+        $data = $albums->map(function ($item) {
+            return [
+                'id'          => $item->id,
+                'nomor_album' => $item->nomor_album,
+                'rak_id'      => $item->rak_id,
+                'rak_kode'    => $item->rak?->kode ?: 'E',
+                'tingkat'     => $item->tingkat,
+                'posisi'      => $item->posisi,
+                'kapasitas'   => $item->kapasitas ?: 30,
+                'terisi'      => $item->terisi,
+                'sisa'        => $item->sisa,
+            ];
+        });
+
+        return response()->json([
+            'data'    => $data,
+            'message' => 'Daftar album berhasil diambil',
+        ], 200);
+    }
+
+    /**
+     * Dapatkan daftar tingkatan rak berdasarkan rak_id.
+     * GET /api/lokasi/tingkat?rak_id=1
+     */
+    public function tingkat(Request $request)
+    {
+        return $this->shaf($request);
     }
 
     /**

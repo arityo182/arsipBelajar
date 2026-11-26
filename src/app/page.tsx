@@ -14,6 +14,7 @@ import {
   Landmark,
   CheckCircle,
   ExternalLink,
+  Info,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -105,31 +106,31 @@ export default function LandingPage() {
           {/* KOLOM KIRI: Keterangan & CTA */}
           <div className="space-y-6">
             <div className="inline-block bg-accent/20 text-primary-dark px-3.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase">
-              Layanan Publik
+              Layanan Publik Mandiri
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-primary-dark leading-tight font-sans">
-              Cek Status Dokumen<br />Pertanahan Anda
+              Cek Status Berkas<br />DI-302 Anda
             </h2>
             <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
-              Masyarakat dapat mengecek status dokumen pertanahan secara mandiri tanpa perlu datang ke kantor.
+              Masyarakat dapat mengecek status berkas permohonan pengukuran bidang tanah secara mandiri tanpa perlu antre di kantor pertanahan.
             </p>
 
             <div className="space-y-3.5 pt-1">
               <div className="flex items-center gap-3 text-sm text-gray-700">
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <span className="font-medium">Cepat — hasil dalam hitungan detik</span>
+                <span className="font-medium">Cepat — hasil seketika dalam hitungan detik</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-700">
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <span className="font-medium">Cukup masukkan Nomor GU atau NIB</span>
+                <span className="font-medium">Cukup masukkan Nomor DI-302 (Nomor GU) atau Nama Pemohon</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-700">
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <span className="font-medium">Tersedia 24 jam, tidak perlu login</span>
+                <span className="font-medium">Tersedia online 24 jam, tidak perlu login atau mendaftar</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-700">
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <span className="font-medium">Tanpa registrasi, langsung bisa digunakan</span>
+                <span className="font-medium">Perlindungan privasi data pemohon terjaga</span>
               </div>
             </div>
 
@@ -139,7 +140,7 @@ export default function LandingPage() {
                 onClick={() => router.push('/cek-dokumen')}
                 className="inline-flex items-center gap-2 bg-primary hover:bg-primary-light text-white px-8 py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all cursor-pointer"
               >
-                <span>Cek Dokumen Saya</span>
+                <span>Cek Berkas DI-302 Saya</span>
                 <ExternalLink className="w-5 h-5 ml-1" />
               </button>
             </div>
@@ -148,7 +149,7 @@ export default function LandingPage() {
           {/* KOLOM KANAN: Preview Hasil Statis Bertanda CONTOH */}
           <div className="relative">
 
-            {/* Label CONTOH — pojok kiri atas, mencolok */}
+            {/* Label CONTOH */}
             <div className="absolute -top-3 -left-3 z-10
                             bg-yellow-400 text-yellow-900
                             text-xs font-black px-3 py-1
@@ -156,15 +157,14 @@ export default function LandingPage() {
                             rotate-[-3deg]
                             border-2 border-yellow-600
                             tracking-wider uppercase">
-              ✦ Contoh Tampilan
+              ✦ Contoh Tampilan Hasil
             </div>
 
-            {/* Card preview — tidak ada input, tidak ada tombol */}
+            {/* Card preview */}
             <div className="bg-white rounded-2xl shadow-xl
                             border-2 border-dashed border-gray-200
                             p-6 relative overflow-hidden">
 
-              {/* Watermark diagonal di background */}
               <div className="absolute inset-0 flex items-center
                               justify-center pointer-events-none
                               select-none opacity-[0.04]
@@ -175,15 +175,14 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              {/* Label atas */}
               <p className="text-xs text-gray-400 font-medium mb-4
                             flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full
                                  bg-green-400 animate-pulse" />
-                Begini tampilan hasil jika dokumen ditemukan:
+                Begini tampilan hasil jika berkas ditemukan:
               </p>
 
-              {/* Card hasil dokumen 1 — TERSEDIA */}
+              {/* Card hasil 1 — SELESAI */}
               <div className="border-l-4 border-green-500
                               bg-white rounded-xl shadow-sm
                               p-4 mb-3">
@@ -192,30 +191,30 @@ export default function LandingPage() {
                   <div>
                     <p className="font-mono font-bold text-primary
                                   text-base">
-                      GU-0124/2024
+                      No. DI-302: 1430
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Sertipikat • 2024
+                      Pengukuran Dan Pemetaan • 10 Jan 2024
                     </p>
                   </div>
                   <span className="bg-green-100 text-green-700
-                                   text-xs font-semibold px-2 py-1
+                                   text-xs font-semibold px-2.5 py-1
                                    rounded-full border border-green-200">
-                    Tersedia
+                    Selesai
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
-                    <p className="text-xs text-gray-400">NIB</p>
-                    <p className="text-xs font-semibold font-mono">
-                      33020101001
+                    <p className="text-xs text-gray-400">Nama Pemohon</p>
+                    <p className="text-xs font-bold font-mono">
+                      NACHR****
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Wilayah</p>
                     <p className="text-xs font-semibold">
-                      Purwanegara, Banyumas
+                      Teluk, Purwokerto Selatan
                     </p>
                   </div>
                 </div>
@@ -228,64 +227,63 @@ export default function LandingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round"
                           strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-semibold text-green-700">
-                    Tersedia di Kantor
+                  <span className="text-xs font-semibold text-green-700">
+                    Berkas Telah Selesai Diproses
                   </span>
                 </div>
               </div>
 
-              {/* Card hasil dokumen 2 — DIPINJAM */}
+              {/* Card hasil 2 — PROSES */}
               <div className="border-l-4 border-yellow-400
                               bg-white rounded-xl shadow-sm
-                              p-4 mb-4 opacity-75">
+                              p-4 mb-2 opacity-85">
 
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <p className="font-mono font-bold text-primary
                                   text-base">
-                      GU-0987/2023
+                      No. DI-302: 804
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Warkah • 2023
+                      Pengukuran Dan Pemetaan • 08 Jan 2024
                     </p>
                   </div>
-                  <span className="bg-yellow-100 text-yellow-700
-                                   text-xs font-semibold px-2 py-1
+                  <span className="bg-yellow-100 text-yellow-800
+                                   text-xs font-semibold px-2.5 py-1
                                    rounded-full border border-yellow-200">
-                    Dipinjam
+                    Masih Proses
                   </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-400">Nama Pemohon</p>
+                    <p className="text-xs font-bold font-mono">
+                      SLAME****
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Wilayah</p>
+                    <p className="text-xs font-semibold">
+                      Sokaraja Kulon, Sokaraja
+                    </p>
+                  </div>
                 </div>
 
                 <div className="bg-yellow-50 border border-yellow-200
                                 rounded-lg p-3 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-yellow-600 flex-shrink-0"
-                       fill="none" viewBox="0 0 24 24"
-                       stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  <span className="text-sm font-semibold text-yellow-700">
-                    Sedang Dalam Proses
+                  <Clock className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-yellow-700">
+                    Berkas Masih Dalam Proses Pengukuran
                   </span>
                 </div>
               </div>
 
               {/* Keterangan di bawah */}
-              <div className="bg-blue-50 border border-blue-100
-                              rounded-lg px-4 py-3
-                              flex items-start gap-2">
-                <svg className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5"
-                     fill="none" viewBox="0 0 24 24"
-                     stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18
-                           0 9 9 0 0118 0z"/>
-                </svg>
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-600 leading-relaxed">
-                  Klik tombol <strong>"Cek Dokumen Saya"</strong> di kiri
-                  untuk mencari dokumen Anda yang sesungguhnya.
+                  Klik tombol <strong>"Cek Berkas DI-302 Saya"</strong> di kiri untuk mengecek status berkas permohonan Anda yang sesungguhnya.
                 </p>
               </div>
 

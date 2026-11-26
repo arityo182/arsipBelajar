@@ -196,23 +196,23 @@ export function useCascadingLokasi(): UseCascadingLokasiReturn {
   // Set nilai awal bertingkat saat mode edit dokumen
   const setInitial = useCallback(async (data: Lokasi) => {
     try {
-      setSelectedRuang(data.ruang_id);
+      setSelectedRuang(data.ruang_id ?? null);
       setLoading((prev) => ({ ...prev, rak: true, shaf: true, boks: true }));
 
       // Fetch Rak
       const rakRes = await get<ApiResponse<Rak[]>>('/lokasi/rak', { ruang_id: data.ruang_id });
       setRakList(rakRes.data);
-      setSelectedRak(data.rak_id);
+      setSelectedRak(data.rak_id ?? null);
 
       // Fetch Shaf
       const shafRes = await get<ApiResponse<Shaf[]>>('/lokasi/shaf', { rak_id: data.rak_id });
       setShafList(shafRes.data);
-      setSelectedShaf(data.shaf_id);
+      setSelectedShaf(data.shaf_id ?? null);
 
       // Fetch Boks
       const boksRes = await get<ApiResponse<Boks[]>>('/lokasi/boks', { shaf_id: data.shaf_id });
       setBoksList(boksRes.data);
-      setSelectedBoks(data.boks_id);
+      setSelectedBoks(data.boks_id ?? null);
     } catch {
       // Tangani jika terjadi kegagalan initial fetch
     } finally {

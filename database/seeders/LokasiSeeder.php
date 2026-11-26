@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Ruang;
 use App\Models\Rak;
 use App\Models\Shaf;
-use App\Models\Boks;
+use App\Models\Album;
 
 class LokasiSeeder extends Seeder
 {
@@ -15,60 +15,60 @@ class LokasiSeeder extends Seeder
      */
     public function run(): void
     {
-        $strukturRuang = [
+        $ruang = Ruang::firstOrCreate(
+            ['kode' => 'RA-DI302'],
             [
-                'nama'      => 'Ruang Arsip A',
-                'kode'      => 'RA-A',
-                'deskripsi' => 'Ruang penyimpanan dokumen tahun 2020-2024',
-                'raks'      => ['RA-A-01', 'RA-A-02', 'RA-A-03', 'RA-A-04'],
-            ],
-            [
-                'nama'      => 'Ruang Arsip B',
-                'kode'      => 'RA-B',
-                'deskripsi' => 'Ruang penyimpanan dokumen tahun 2015-2019',
-                'raks'      => ['RA-B-01', 'RA-B-02', 'RA-B-03', 'RA-B-04'],
-            ],
+                'nama'      => 'Ruang Arsip DI-302',
+                'deskripsi' => 'Ruang penyimpanan fisik Album Register DI-302 Kantah Banyumas',
+            ]
+        );
+
+        // 1. Rak Bagian Kanan (Rak E)
+        $rakE = Rak::firstOrCreate(
+            ['kode' => 'E'],
+            ['ruang_id' => $ruang->id]
+        );
+
+        // 2. Rak Bagian Kiri
+        $rakKiri = Rak::firstOrCreate(
+            ['kode' => 'KIRI'],
+            ['ruang_id' => $ruang->id]
+        );
+
+        // Tingkatan pada Rak E (Tingkat 1 - 4)
+        foreach (['1', '2', '3', '4'] as $t) {
+            Shaf::firstOrCreate(
+                ['rak_id' => $rakE->id, 'kode' => $t]
+            );
+        }
+
+        // Tingkatan pada Rak Kiri (Tingkat 1 - 2)
+        foreach (['1', '2'] as $t) {
+            Shaf::firstOrCreate(
+                ['rak_id' => $rakKiri->id, 'kode' => $t]
+            );
+        }
+
+        // Album 1 s/d 4 di Rak E berada di Tingkat 1 (Sesuai denah: Tingkat 1 memuat Album 1 s.d. 16)
+        $albums = [
+            ['nomor_album' => 1, 'rak_id' => $rakE->id, 'tingkat' => '1', 'posisi' => null, 'kapasitas' => 30],
+            ['nomor_album' => 2, 'rak_id' => $rakE->id, 'tingkat' => '1', 'posisi' => null, 'kapasitas' => 30],
+            ['nomor_album' => 3, 'rak_id' => $rakE->id, 'tingkat' => '1', 'posisi' => null, 'kapasitas' => 30],
+            ['nomor_album' => 4, 'rak_id' => $rakE->id, 'tingkat' => '1', 'posisi' => null, 'kapasitas' => 30],
         ];
 
-        $daftarShaf = ['SH-01', 'SH-02', 'SH-03'];
-        $daftarBoks = ['001', '002', '003', '004', '005'];
-
-        foreach ($strukturRuang as $dataRuang) {
-            $ruang = Ruang::firstOrCreate(
-                ['kode' => $dataRuang['kode']],
+        foreach ($albums as $alb) {
+            Album::firstOrCreate(
                 [
-                    'nama'      => $dataRuang['nama'],
-                    'deskripsi' => $dataRuang['deskripsi'],
+                    'nomor_album' => $alb['nomor_album'],
+                    'rak_id'      => $alb['rak_id'],
+                ],
+                [
+                    'tingkat'     => $alb['tingkat'],
+                    'posisi'      => $alb['posisi'],
+                    'kapasitas'   => $alb['kapasitas'],
                 ]
             );
-
-            foreach ($dataRuang['raks'] as $kodeRak) {
-                $rak = Rak::firstOrCreate(
-                    ['kode' => $kodeRak],
-                    ['ruang_id' => $ruang->id]
-                );
-
-                foreach ($daftarShaf as $kodeShaf) {
-                    $shaf = Shaf::firstOrCreate(
-                        [
-                            'rak_id' => $rak->id,
-                            'kode'   => $kodeShaf,
-                        ]
-                    );
-
-                    foreach ($daftarBoks as $nomorBoks) {
-                        Boks::firstOrCreate(
-                            [
-                                'shaf_id' => $shaf->id,
-                                'nomor'   => $nomorBoks,
-                            ],
-                            [
-                                'kapasitas' => 50,
-                            ]
-                        );
-                    }
-                }
-            }
         }
     }
 }

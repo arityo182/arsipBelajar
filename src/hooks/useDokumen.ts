@@ -19,17 +19,26 @@ export interface UseDokumenReturn {
 }
 
 /**
- * Hook untuk mengambil daftar dokumen terpaginasi dengan pencarian real-time dan AbortController
+ * Hook untuk mengambil daftar dokumen terpaginasi dengan pencarian real-time dan multi-filter
  */
-export function useDokumen({ search, page, per_page }: SearchParams): UseDokumenReturn {
+export function useDokumen({
+  search,
+  page,
+  per_page,
+  status_berkas,
+  nomor_album,
+  jenis_permohonan,
+  rak_id
+}: SearchParams): UseDokumenReturn {
   const [dokumen, setDokumen] = useState<Dokumen[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Menyimpan referensi kata kunci pencarian sebelumnya untuk mendeteksi perubahan
-  const prevSearchRef = useRef<string>(search);
+  const prevFiltersRef = useRef<string>('');
   const activeControllerRef = useRef<AbortController | null>(null);
+
+  const currentFiltersKey = `${search}|${status_berkas || ''}|${nomor_album || ''}|${jenis_permohonan || ''}|${rak_id || ''}`;
 
   const fetchDokumen = useCallback(
     async (currentPage: number, currentSearch: string, signal?: AbortSignal) => {
@@ -37,20 +46,26 @@ export function useDokumen({ search, page, per_page }: SearchParams): UseDokumen
       setError(null);
 
       try {
+        const params: Record<string, any> = {
+          search: currentSearch,
+          page: currentPage,
+          per_page,
+        };
+
+        if (status_berkas) params.status_berkas = status_berkas;
+        if (nomor_album) params.nomor_album = nomor_album;
+        if (jenis_permohonan) params.jenis_permohonan = jenis_permohonan;
+        if (rak_id) params.rak_id = rak_id;
+
         const response = await get<PaginatedResponse<Dokumen>>(
           '/dokumen',
-          {
-            search: currentSearch,
-            page: currentPage,
-            per_page,
-          },
+          params,
           { signal }
         );
 
         setDokumen(response.data);
         setMeta(response.meta);
       } catch (err: unknown) {
-        // Jangan tampilkan toast/error jika request sengaja dibatalkan oleh user/cleanup
         if (axios.isCancel(err) || (err instanceof Error && err.name === 'CanceledError')) {
           return;
         }
@@ -66,11 +81,10 @@ export function useDokumen({ search, page, per_page }: SearchParams): UseDokumen
         setIsLoading(false);
       }
     },
-    [per_page]
+    [per_page, status_berkas, nomor_album, jenis_permohonan, rak_id]
   );
 
   useEffect(() => {
-    // Batalkan request yang sedang berjalan jika ada pergantian filter/halaman
     if (activeControllerRef.current) {
       activeControllerRef.current.abort();
     }
@@ -80,9 +94,8 @@ export function useDokumen({ search, page, per_page }: SearchParams): UseDokumen
 
     let targetPage = page;
 
-    // Jika search berubah dari state sebelumnya, otomatis reset ke halaman 1
-    if (prevSearchRef.current !== search) {
-      prevSearchRef.current = search;
+    if (prevFiltersRef.current !== currentFiltersKey) {
+      prevFiltersRef.current = currentFiltersKey;
       targetPage = 1;
     }
 
@@ -91,7 +104,7 @@ export function useDokumen({ search, page, per_page }: SearchParams): UseDokumen
     return () => {
       controller.abort();
     };
-  }, [search, page, fetchDokumen]);
+  }, [search, page, currentFiltersKey, fetchDokumen]);
 
   const refetch = useCallback(async () => {
     if (activeControllerRef.current) {
@@ -100,13 +113,7 @@ export function useDokumen({ search, page, per_page }: SearchParams): UseDokumen
     const controller = new AbortController();
     activeControllerRef.current = controller;
     await fetchDokumen(page, search, controller.signal);
-  }, [fetchDokumen, page, search]);
+  }, [page, search, fetchDokumen]);
 
-  return {
-    dokumen,
-    meta,
-    isLoading,
-    error,
-    refetch,
-  };
+  return { dokumen, meta, isLoading, error, refetch };
 }

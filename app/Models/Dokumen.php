@@ -16,22 +16,33 @@ class Dokumen extends Model
     protected $table = 'dokumen';
 
     protected $fillable = [
-        'nomor_gu',
+        'nomor_di302',
+        'nomor_album',
+        'nomor_urut',
+        'tanggal_masuk',
         'tahun',
-        'nib',
-        'jenis_dokumen',
-        'nama_pemilik',
+        'nama_pemohon',
+        'jenis_permohonan',
         'desa_id',
-        'boks_id',
+        'kecamatan_id',
+        'rak_id',
+        'tingkat',
+        'posisi',
+        'keterangan',
+        'catatan',
         'status_fisik',
-        'created_by',
+        'status_berkas',
     ];
 
     protected $casts = [
-        'tahun' => 'integer',
-        'desa_id' => 'integer',
-        'boks_id' => 'integer',
-        'created_by' => 'integer',
+        'nomor_album'   => 'integer',
+        'nomor_urut'    => 'integer',
+        'tahun'         => 'integer',
+        'tanggal_masuk' => 'date',
+        'desa_id'       => 'integer',
+        'kecamatan_id'  => 'integer',
+        'rak_id'        => 'integer',
+        'created_by'    => 'integer',
     ];
 
     /**
@@ -39,38 +50,69 @@ class Dokumen extends Model
      */
     protected $appends = [
         'lokasi_lengkap',
+        'status_label',
     ];
 
     /**
      * Accessor untuk string lokasi lengkap dokumen fisik.
-     * Format: "Ruang {ruang.nama} → Rak {rak.kode} → Shaf {shaf.kode} → Boks {boks.nomor}"
+     * Format: "Rak E → Tingkat 1 → Album 1 (Urut #1)"
      */
     protected function lokasiLengkap(): Attribute
     {
         return Attribute::make(
             get: function () {
-                $boks = $this->boks;
-                if (!$boks) {
-                    return 'Lokasi Belum Ditentukan';
+                $rakKode = $this->rak ? $this->rak->kode : ($this->album && $this->album->rak ? $this->album->rak->kode : '-');
+                $tingkat = $this->tingkat ?: ($this->album ? $this->album->tingkat : null);
+                $nomorAlbum = $this->nomor_album ?: '-';
+
+                $lokasi = "Rak {$rakKode}";
+                if ($tingkat) {
+                    $lokasi .= " → Tingkat {$tingkat}";
+                }
+                $lokasi .= " → Album {$nomorAlbum}";
+
+                if ($this->nomor_urut) {
+                    $lokasi .= " (Urut #{$this->nomor_urut})";
                 }
 
-                $shaf = $boks->shaf;
-                $rak = $shaf ? $shaf->rak : null;
-                $ruang = $rak ? $rak->ruang : null;
-
-                $ruangNama = '-';
-                if ($ruang) {
-                    $ruangNama = str_starts_with($ruang->nama, 'Ruang')
-                        ? $ruang->nama
-                        : "Ruang {$ruang->nama}";
-                }
-                $rakKode   = $rak ? $rak->kode : '-';
-                $shafKode  = $shaf ? $shaf->kode : '-';
-                $boksNomor = $boks->nomor ?? '-';
-
-                return "{$ruangNama} → Rak {$rakKode} → Shaf {$shafKode} → Boks {$boksNomor}";
+                return $lokasi;
             }
         );
+    }
+
+    /**
+     * Accessor status label bahasa Indonesia.
+     */
+    protected function statusLabel(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $status = $this->status_fisik ?: $this->status_berkas;
+                return match ($status) {
+                    'TERSEDIA' => 'Tersedia di Album',
+                    'HILANG'   => 'Fisik Belum Ditemukan',
+                    'DIPINJAM' => 'Sedang Dipinjam',
+                    'RUSAK'    => 'Dalam Perbaikan Fisik',
+                    default    => 'Tersedia di Album',
+                };
+            }
+        );
+    }
+
+    /**
+     * Relasi ke Album fisik.
+     */
+    public function album(): BelongsTo
+    {
+        return $this->belongsTo(Album::class, 'nomor_album', 'nomor_album');
+    }
+
+    /**
+     * Relasi ke Rak penyimpanan.
+     */
+    public function rak(): BelongsTo
+    {
+        return $this->belongsTo(Rak::class, 'rak_id');
     }
 
     /**
@@ -82,11 +124,11 @@ class Dokumen extends Model
     }
 
     /**
-     * Relasi ke Boks tempat dokumen fisik disimpan.
+     * Relasi ke Kecamatan.
      */
-    public function boks(): BelongsTo
+    public function kecamatan(): BelongsTo
     {
-        return $this->belongsTo(Boks::class, 'boks_id');
+        return $this->belongsTo(Kecamatan::class, 'kecamatan_id');
     }
 
     /**

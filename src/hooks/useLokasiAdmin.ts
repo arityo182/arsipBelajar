@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Ruang, Rak, Shaf, Boks, ApiResponse } from '@/types';
+import { Ruang, Rak, Shaf, Boks, Album, ApiResponse } from '@/types';
 import { get, post, put, del } from '@/lib/api';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,7 @@ export function useLokasiAdmin() {
   const [rakList, setRakList] = useState<Rak[]>([]);
   const [shafList, setShafList] = useState<Shaf[]>([]);
   const [boksList, setBoksList] = useState<Boks[]>([]);
+  const [albumList, setAlbumList] = useState<Album[]>([]);
 
   const [isLoading, setIsLoading] = useState({
     global: true,
@@ -17,6 +18,7 @@ export function useLokasiAdmin() {
     rak: false,
     shaf: false,
     boks: false,
+    album: false,
   });
 
   // ================================================================
@@ -49,6 +51,21 @@ export function useLokasiAdmin() {
       return [];
     } finally {
       setIsLoading((prev) => ({ ...prev, rak: false }));
+    }
+  }, []);
+
+  const fetchAlbum = useCallback(async (rakId?: number | null) => {
+    setIsLoading((prev) => ({ ...prev, album: true }));
+    try {
+      const params = rakId ? { rak_id: rakId } : undefined;
+      const res = await get<ApiResponse<Album[]>>('/admin/lokasi/album', params);
+      setAlbumList(res.data);
+      return res.data;
+    } catch {
+      toast.error('Gagal memuat data album');
+      return [];
+    } finally {
+      setIsLoading((prev) => ({ ...prev, album: false }));
     }
   }, []);
 
@@ -85,17 +102,17 @@ export function useLokasiAdmin() {
   const fetchAll = useCallback(async () => {
     setIsLoading((prev) => ({ ...prev, global: true }));
     try {
-      const [resRuang, resRak, resShaf, resBoks] = await Promise.all([
-        get<ApiResponse<Ruang[]>>('/admin/lokasi/ruang'),
-        get<ApiResponse<Rak[]>>('/admin/lokasi/rak'),
-        get<ApiResponse<Shaf[]>>('/admin/lokasi/shaf'),
-        get<ApiResponse<Boks[]>>('/admin/lokasi/boks'),
+      const [resRuang, resRak, resShaf, resAlbum] = await Promise.all([
+        get<ApiResponse<Ruang[]>>('/admin/lokasi/ruang').catch(() => ({ data: [] })),
+        get<ApiResponse<Rak[]>>('/admin/lokasi/rak').catch(() => ({ data: [] })),
+        get<ApiResponse<Shaf[]>>('/admin/lokasi/tingkat').catch(() => ({ data: [] })),
+        get<ApiResponse<Album[]>>('/admin/lokasi/album').catch(() => ({ data: [] })),
       ]);
 
-      setRuangList(resRuang.data);
-      setRakList(resRak.data);
-      setShafList(resShaf.data);
-      setBoksList(resBoks.data);
+      setRuangList(resRuang.data || []);
+      setRakList(resRak.data || []);
+      setShafList(resShaf.data || []);
+      setAlbumList(resAlbum.data || []);
     } catch {
       toast.error('Gagal memuat master data lokasi arsip');
     } finally {
@@ -108,123 +125,124 @@ export function useLokasiAdmin() {
   }, [fetchAll]);
 
   // ================================================================
-  // CRUD RUANG
+  // MUTATIONS: RUANG
   // ================================================================
 
-  const createRuang = async (data: { nama: string; kode: string; deskripsi?: string }) => {
-    const res = await post<ApiResponse<Ruang>>('/admin/lokasi/ruang', data);
-    toast.success('Berhasil menambahkan ruang baru');
+  const createRuang = async (payload: { nama: string; kode: string; deskripsi?: string }) => {
+    const res = await post<ApiResponse<Ruang>>('/admin/lokasi/ruang', payload);
     await fetchRuang();
     return res.data;
   };
 
-  const updateRuang = async (id: number, data: { nama: string; kode: string; deskripsi?: string }) => {
-    const res = await put<ApiResponse<Ruang>>(`/admin/lokasi/ruang/${id}`, data);
-    toast.success('Berhasil memperbarui data ruang');
+  const updateRuang = async (id: number, payload: { nama: string; kode: string; deskripsi?: string }) => {
+    const res = await put<ApiResponse<Ruang>>(`/admin/lokasi/ruang/${id}`, payload);
     await fetchRuang();
     return res.data;
   };
 
   const deleteRuang = async (id: number) => {
-    await del(`/admin/lokasi/ruang/${id}`);
-    toast.success('Ruang berhasil dihapus');
-    await fetchAll();
+    const res = await del<ApiResponse<null>>(`/admin/lokasi/ruang/${id}`);
+    await fetchRuang();
+    return res;
   };
 
   // ================================================================
-  // CRUD RAK
+  // MUTATIONS: RAK
   // ================================================================
 
-  const createRak = async (data: { ruang_id: number; kode: string; nama?: string }) => {
-    const res = await post<ApiResponse<Rak>>('/admin/lokasi/rak', data);
-    toast.success('Berhasil menambahkan rak baru');
+  const createRak = async (payload: { kode: string; ruang_id: number; nama?: string }) => {
+    const res = await post<ApiResponse<Rak>>('/admin/lokasi/rak', payload);
     await fetchRak();
     return res.data;
   };
 
-  const updateRak = async (id: number, data: { ruang_id: number; kode: string; nama?: string }) => {
-    const res = await put<ApiResponse<Rak>>(`/admin/lokasi/rak/${id}`, data);
-    toast.success('Berhasil memperbarui data rak');
+  const updateRak = async (id: number, payload: { kode: string; ruang_id: number; nama?: string }) => {
+    const res = await put<ApiResponse<Rak>>(`/admin/lokasi/rak/${id}`, payload);
     await fetchRak();
     return res.data;
   };
 
   const deleteRak = async (id: number) => {
-    await del(`/admin/lokasi/rak/${id}`);
-    toast.success('Rak berhasil dihapus');
-    await fetchAll();
+    const res = await del<ApiResponse<null>>(`/admin/lokasi/rak/${id}`);
+    await fetchRak();
+    return res;
   };
 
   // ================================================================
-  // CRUD SHAF
+  // MUTATIONS: TINGKATAN RAK (SHAF)
   // ================================================================
 
-  const createShaf = async (data: { rak_id: number; kode: string; nama?: string }) => {
-    const res = await post<ApiResponse<Shaf>>('/admin/lokasi/shaf', data);
-    toast.success('Berhasil menambahkan shaf baru');
+  const createTingkat = async (payload: { kode: string; rak_id: number }) => {
+    const res = await post<ApiResponse<Shaf>>('/admin/lokasi/tingkat', payload);
     await fetchShaf();
     return res.data;
   };
 
-  const updateShaf = async (id: number, data: { rak_id: number; kode: string; nama?: string }) => {
-    const res = await put<ApiResponse<Shaf>>(`/admin/lokasi/shaf/${id}`, data);
-    toast.success('Berhasil memperbarui data shaf');
+  const updateTingkat = async (id: number, payload: { kode: string; rak_id: number }) => {
+    const res = await put<ApiResponse<Shaf>>(`/admin/lokasi/tingkat/${id}`, payload);
     await fetchShaf();
     return res.data;
   };
 
-  const deleteShaf = async (id: number) => {
-    await del(`/admin/lokasi/shaf/${id}`);
-    toast.success('Shaf berhasil dihapus');
-    await fetchAll();
+  const deleteTingkat = async (id: number) => {
+    const res = await del<ApiResponse<null>>(`/admin/lokasi/tingkat/${id}`);
+    await fetchShaf();
+    return res;
   };
 
   // ================================================================
-  // CRUD BOKS
+  // MUTATIONS: ALBUM
   // ================================================================
 
-  const createBoks = async (data: { shaf_id: number; nomor: string; kapasitas: number }) => {
-    const res = await post<ApiResponse<Boks>>('/admin/lokasi/boks', data);
-    toast.success('Berhasil menambahkan boks baru');
-    await fetchBoks();
+  const createAlbum = async (payload: { rak_id: number; nomor_album: number; tingkat?: string | null; posisi?: string | null; kapasitas: number }) => {
+    const res = await post<ApiResponse<Album>>('/admin/lokasi/album', payload);
+    await fetchAlbum();
     return res.data;
   };
 
-  const updateBoks = async (id: number, data: { shaf_id: number; nomor: string; kapasitas: number }) => {
-    const res = await put<ApiResponse<Boks>>(`/admin/lokasi/boks/${id}`, data);
-    toast.success('Berhasil memperbarui data boks');
-    await fetchBoks();
+  const updateAlbum = async (id: number, payload: { rak_id: number; nomor_album: number; tingkat?: string | null; posisi?: string | null; kapasitas: number }) => {
+    const res = await put<ApiResponse<Album>>(`/admin/lokasi/album/${id}`, payload);
+    await fetchAlbum();
     return res.data;
   };
 
-  const deleteBoks = async (id: number) => {
-    await del(`/admin/lokasi/boks/${id}`);
-    toast.success('Boks berhasil dihapus');
-    await fetchAll();
+  const deleteAlbum = async (id: number) => {
+    const res = await del<ApiResponse<null>>(`/admin/lokasi/album/${id}`);
+    await fetchAlbum();
+    return res;
   };
 
   return {
     ruangList,
     rakList,
     shafList,
+    tingkatList: shafList,
     boksList,
+    albumList,
     isLoading,
     fetchAll,
     fetchRuang,
     fetchRak,
     fetchShaf,
-    fetchBoks,
+    fetchTingkat: fetchShaf,
+    fetchAlbum,
     createRuang,
     updateRuang,
     deleteRuang,
     createRak,
     updateRak,
     deleteRak,
-    createShaf,
-    updateShaf,
-    deleteShaf,
-    createBoks,
-    updateBoks,
-    deleteBoks,
+    createShaf: createTingkat,
+    updateShaf: updateTingkat,
+    deleteShaf: deleteTingkat,
+    createTingkat,
+    updateTingkat,
+    deleteTingkat,
+    createAlbum,
+    updateAlbum,
+    deleteAlbum,
+    createBoks: async () => {},
+    updateBoks: async () => {},
+    deleteBoks: async () => {},
   };
 }

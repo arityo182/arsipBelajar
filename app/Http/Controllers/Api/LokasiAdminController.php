@@ -8,6 +8,7 @@ use App\Models\Rak;
 use App\Models\Shaf;
 use App\Models\Boks;
 use App\Models\Dokumen;
+use App\Models\Album;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -79,14 +80,22 @@ class LokasiAdminController extends Controller
     {
         $ruang = Ruang::findOrFail($id);
 
-        // Cek apakah masih ada dokumen di ruang ini
-        $docCount = Dokumen::whereHas('boks.shaf.rak', function ($q) use ($id) {
+        // Cek apakah masih ada dokumen (termasuk soft-deleted) di ruang ini
+        $docCount = Dokumen::withTrashed()->whereHas('rak', function ($q) use ($id) {
             $q->where('ruang_id', $id);
         })->count();
 
         if ($docCount > 0) {
             return response()->json([
-                'message' => "Tidak dapat menghapus ruang yang masih berisi dokumen ({$docCount} dokumen). Pindahkan dokumen terlebih dahulu.",
+                'message' => "Tidak dapat menghapus ruang yang masih berisi berkas DI-302 ({$docCount} dokumen). Pindahkan berkas terlebih dahulu.",
+            ], 422);
+        }
+
+        // Cek apakah masih ada rak di dalam ruang ini agar tidak terhapus cascade diam-diam
+        $rakCount = Rak::where('ruang_id', $id)->count();
+        if ($rakCount > 0) {
+            return response()->json([
+                'message' => "Tidak dapat menghapus ruang yang masih memiliki {$rakCount} rak. Hapus rak terlebih dahulu.",
             ], 422);
         }
 
@@ -179,17 +188,25 @@ class LokasiAdminController extends Controller
     {
         $rak = Rak::findOrFail($id);
 
-        // Cek dokumen di dalam rak ini
-        $docCount = Dokumen::whereHas('boks.shaf', function ($q) use ($id) {
-            $q->where('rak_id', $id);
-        })->count();
+        // Cek dokumen (termasuk soft-deleted) di dalam rak ini agar tidak bentrok FK
+        $docCount = Dokumen::withTrashed()->where('rak_id', $id)->count();
 
         if ($docCount > 0) {
             return response()->json([
-                'message' => "Tidak dapat menghapus rak yang masih berisi dokumen ({$docCount} dokumen). Pindahkan dokumen terlebih dahulu.",
+                'message' => "Tidak dapat menghapus rak yang masih berisi berkas DI-302 ({$docCount} dokumen). Pindahkan berkas terlebih dahulu.",
             ], 422);
         }
 
+        // Cek album di dalam rak ini
+        $albumCount = Album::where('rak_id', $id)->count();
+        if ($albumCount > 0) {
+            return response()->json([
+                'message' => "Tidak dapat menghapus rak yang masih memuat {$albumCount} album arsip. Hapus atau pindahkan album terlebih dahulu.",
+            ], 422);
+        }
+
+        // Hapus tingkatan (shafs) yang terdaftar di rak ini sebelum rak dihapus
+        $rak->shafs()->delete();
         $rak->delete();
 
         return response()->json([
@@ -289,20 +306,21 @@ class LokasiAdminController extends Controller
     {
         $shaf = Shaf::findOrFail($id);
 
-        $docCount = Dokumen::whereHas('boks', function ($q) use ($id) {
-            $q->where('shaf_id', $id);
-        })->count();
+        $docCount = Dokumen::where('rak_id', $shaf->rak_id)
+            ->where('tingkat', $shaf->kode)
+            ->whereNull('deleted_at')
+            ->count();
 
         if ($docCount > 0) {
             return response()->json([
-                'message' => "Tidak dapat menghapus shaf yang masih berisi dokumen ({$docCount} dokumen). Pindahkan dokumen terlebih dahulu.",
+                'message' => "Tidak dapat menghapus tingkatan yang masih berisi berkas DI-302 ({$docCount} dokumen). Pindahkan berkas terlebih dahulu.",
             ], 422);
         }
 
         $shaf->delete();
 
         return response()->json([
-            'message' => 'Shaf berhasil dihapus',
+            'message' => 'Tingkatan berhasil dihapus',
         ]);
     }
 
@@ -443,6 +461,136 @@ class LokasiAdminController extends Controller
 
         return response()->json([
             'message' => 'Boks berhasil dihapus',
+        ]);
+    }
+
+    // ================================================================
+    // 5. ALBUM ARSIP DI-302
+    // ================================================================
+
+    public function indexAlbum(Request $request)
+    {
+        $query = \App\Models\Album::with('rak')
+            ->withCount(['dokumens' => function ($q) {
+                $q->whereNull('deleted_at');
+            }]);
+
+        if ($request->filled('rak_id')) {
+            $query->where('rak_id', $request->query('rak_id'));
+        }
+
+        $albums = $query->orderBy('nomor_album', 'asc')->get();
+
+        $data = $albums->map(function ($item) {
+            return [
+                'id'          => $item->id,
+                'nomor_album' => $item->nomor_album,
+                'rak_id'      => $item->rak_id,
+                'rak_kode'    => $item->rak?->kode ?: 'E',
+                'tingkat'     => $item->tingkat,
+                'posisi'      => $item->posisi,
+                'kapasitas'   => $item->kapasitas ?: 30,
+                'terisi'      => $item->terisi,
+                'sisa'        => $item->sisa,
+            ];
+        });
+
+        return response()->json([
+            'data'    => $data,
+            'message' => 'Daftar album berhasil diambil',
+        ]);
+    }
+
+    public function storeAlbum(Request $request)
+    {
+        $validated = $request->validate([
+            'rak_id'      => 'required|exists:rak,id',
+            'nomor_album' => [
+                'required',
+                'integer',
+                'min:1',
+                Rule::unique('album', 'nomor_album')->where(fn ($query) => $query->where('rak_id', $request->rak_id)),
+            ],
+            'tingkat'     => 'nullable|string|max:10',
+            'posisi'      => 'nullable|string|max:10',
+            'kapasitas'   => 'required|integer|min:1|max:100',
+        ], [
+            'rak_id.required'      => 'Pilih rak penyimpanan terlebih dahulu.',
+            'rak_id.exists'        => 'Rak yang dipilih tidak valid.',
+            'nomor_album.required' => 'Nomor album wajib diisi.',
+            'nomor_album.unique'   => 'Nomor album sudah terdaftar di rak ini.',
+            'kapasitas.required'   => 'Kapasitas album wajib diisi.',
+        ]);
+
+        $album = \App\Models\Album::create($validated);
+        $album->load('rak');
+
+        return response()->json([
+            'data'    => [
+                'id'          => $album->id,
+                'nomor_album' => $album->nomor_album,
+                'rak_id'      => $album->rak_id,
+                'rak_kode'    => $album->rak?->kode ?: 'E',
+                'tingkat'     => $album->tingkat,
+                'posisi'      => $album->posisi,
+                'kapasitas'   => $album->kapasitas,
+                'terisi'      => $album->terisi,
+                'sisa'        => $album->sisa,
+            ],
+            'message' => 'Album berhasil ditambahkan',
+        ], 201);
+    }
+
+    public function updateAlbum(Request $request, $id)
+    {
+        $album = \App\Models\Album::findOrFail($id);
+
+        $validated = $request->validate([
+            'rak_id'      => 'required|exists:rak,id',
+            'nomor_album' => [
+                'required',
+                'integer',
+                'min:1',
+                Rule::unique('album', 'nomor_album')->where(fn ($query) => $query->where('rak_id', $request->rak_id))->ignore($album->id),
+            ],
+            'tingkat'     => 'nullable|string|max:10',
+            'posisi'      => 'nullable|string|max:10',
+            'kapasitas'   => 'required|integer|min:1|max:100',
+        ]);
+
+        $album->update($validated);
+        $album->load('rak');
+
+        return response()->json([
+            'data'    => [
+                'id'          => $album->id,
+                'nomor_album' => $album->nomor_album,
+                'rak_id'      => $album->rak_id,
+                'rak_kode'    => $album->rak?->kode ?: 'E',
+                'tingkat'     => $album->tingkat,
+                'posisi'      => $album->posisi,
+                'kapasitas'   => $album->kapasitas,
+                'terisi'      => $album->terisi,
+                'sisa'        => $album->sisa,
+            ],
+            'message' => 'Album berhasil diperbarui',
+        ]);
+    }
+
+    public function destroyAlbum($id)
+    {
+        $album = \App\Models\Album::findOrFail($id);
+
+        if ($album->dokumens()->whereNull('deleted_at')->count() > 0) {
+            return response()->json([
+                'message' => 'Tidak dapat menghapus album yang masih berisi berkas DI-302. Pindahkan berkas terlebih dahulu.',
+            ], 422);
+        }
+
+        $album->delete();
+
+        return response()->json([
+            'message' => 'Album berhasil dihapus',
         ]);
     }
 }

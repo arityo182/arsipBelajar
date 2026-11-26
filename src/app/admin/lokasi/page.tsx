@@ -1,1121 +1,864 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  Building2,
   Plus,
-  Layers,
+  BookOpen,
   Archive,
-  Box,
   Pencil,
   Trash2,
   X,
   AlertTriangle,
-  Info,
+  Layers,
+  Building,
+  AlignJustify,
 } from 'lucide-react';
-import { Ruang, Rak, Shaf, Boks } from '@/types';
+import { Ruang, Rak, Shaf, Album } from '@/types';
 import { useLokasiAdmin } from '@/hooks/useLokasiAdmin';
 import SkeletonTable from '@/components/ui/Skeleton';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 
+type TabType = 'ruang' | 'rak' | 'tingkat' | 'album';
+
 export default function MasterLokasiPage() {
-  const [activeTab, setActiveTab] = useState<'ruang' | 'rak' | 'shaf' | 'boks'>('ruang');
+  const [activeTab, setActiveTab] = useState<TabType>('album');
 
   const {
     ruangList,
     rakList,
     shafList,
-    boksList,
+    albumList,
     isLoading,
-    fetchAll,
     createRuang,
     updateRuang,
     deleteRuang,
     createRak,
     updateRak,
     deleteRak,
-    createShaf,
-    updateShaf,
-    deleteShaf,
-    createBoks,
-    updateBoks,
-    deleteBoks,
+    createTingkat,
+    updateTingkat,
+    deleteTingkat,
+    createAlbum,
+    updateAlbum,
+    deleteAlbum,
   } = useLokasiAdmin();
 
   // Modal State
   const [showModal, setShowModal] = useState<boolean>(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
-  const [editingItem, setEditingItem] = useState<Ruang | Rak | Shaf | Boks | null>(null);
+  const [editingItem, setEditingItem] = useState<Ruang | Rak | Shaf | Album | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Delete Confirmation State
+  // Form State: Ruang
+  const [ruangKode, setRuangKode] = useState<string>('');
+  const [ruangNama, setRuangNama] = useState<string>('');
+  const [ruangDeskripsi, setRuangDeskripsi] = useState<string>('');
+
+  // Form State: Rak
+  const [rakKode, setRakKode] = useState<string>('');
+  const [rakRuangId, setRakRuangId] = useState<number | null>(null);
+
+  // Form State: Tingkat (Shaf)
+  const [tingkatKode, setTingkatKode] = useState<string>('');
+  const [tingkatRakId, setTingkatRakId] = useState<number | null>(null);
+
+  // Form State: Album
+  const [albumRakId, setAlbumRakId] = useState<number | null>(null);
+  const [albumNomor, setAlbumNomor] = useState<string>('');
+  const [albumTingkat, setAlbumTingkat] = useState<string>('1');
+  const [albumPosisi, setAlbumPosisi] = useState<string>('');
+  const [albumKapasitas, setAlbumKapasitas] = useState<number>(30);
+
+  // Delete Confirm State
   const [deleteConfirm, setDeleteConfirm] = useState<{
     show: boolean;
-    type: 'ruang' | 'rak' | 'shaf' | 'boks';
+    type: TabType;
     id: number;
     title: string;
   }>({
     show: false,
-    type: 'ruang',
+    type: 'album',
     id: 0,
     title: '',
   });
 
-  // Form State
-  // 1. Ruang Form
-  const [ruangNama, setRuangNama] = useState<string>('');
-  const [ruangKode, setRuangKode] = useState<string>('');
-  const [ruangDeskripsi, setRuangDeskripsi] = useState<string>('');
-
-  // 2. Rak Form
-  const [rakRuangId, setRakRuangId] = useState<number | null>(null);
-  const [rakKode, setRakKode] = useState<string>('');
-  const [rakNama, setRakNama] = useState<string>('');
-
-  // 3. Shaf Form (Cascading: Ruang -> Rak)
-  const [shafRuangId, setShafRuangId] = useState<number | null>(null);
-  const [shafRakId, setShafRakId] = useState<number | null>(null);
-  const [shafKode, setShafKode] = useState<string>('');
-  const [shafNama, setShafNama] = useState<string>('');
-
-  // 4. Boks Form (Cascading: Ruang -> Rak -> Shaf)
-  const [boksRuangId, setBoksRuangId] = useState<number | null>(null);
-  const [boksRakId, setBoksRakId] = useState<number | null>(null);
-  const [boksShafId, setBoksShafId] = useState<number | null>(null);
-  const [boksNomor, setBoksNomor] = useState<string>('');
-  const [boksKapasitas, setBoksKapasitas] = useState<number>(50);
-
-  // Cascading Helpers
-  const filteredRaksForShaf = rakList.filter((r) => !shafRuangId || r.ruang_id === shafRuangId);
-  const filteredRaksForBoks = rakList.filter((r) => !boksRuangId || r.ruang_id === boksRuangId);
-  const filteredShafsForBoks = shafList.filter((s) => !boksRakId || s.rak_id === boksRakId);
-
-  // Reset Form
   const resetForm = () => {
     setEditingItem(null);
-    setFieldErrors({});
-    setRuangNama('');
     setRuangKode('');
+    setRuangNama('');
     setRuangDeskripsi('');
-
-    setRakRuangId(null);
     setRakKode('');
-    setRakNama('');
-
-    setShafRuangId(null);
-    setShafRakId(null);
-    setShafKode('');
-    setShafNama('');
-
-    setBoksRuangId(null);
-    setBoksRakId(null);
-    setBoksShafId(null);
-    setBoksNomor('');
-    setBoksKapasitas(50);
+    setRakRuangId(ruangList[0]?.id || null);
+    setTingkatKode('');
+    setTingkatRakId(rakList[0]?.id || null);
+    setAlbumRakId(rakList[0]?.id || null);
+    setAlbumNomor('');
+    setAlbumTingkat('1');
+    setAlbumPosisi('');
+    setAlbumKapasitas(30);
   };
 
   const handleOpenAdd = () => {
     resetForm();
     setModalMode('add');
+    if (activeTab === 'rak' && ruangList.length > 0) {
+      setRakRuangId(ruangList[0].id);
+    } else if (activeTab === 'tingkat' && rakList.length > 0) {
+      setTingkatRakId(rakList[0].id);
+    } else if (activeTab === 'album' && rakList.length > 0) {
+      setAlbumRakId(rakList[0].id);
+    }
     setShowModal(true);
   };
 
-  const handleOpenEdit = (item: Ruang | Rak | Shaf | Boks) => {
+  const handleOpenEdit = (item: Ruang | Rak | Shaf | Album) => {
     resetForm();
-    setEditingItem(item);
     setModalMode('edit');
+    setEditingItem(item);
 
     if (activeTab === 'ruang') {
       const r = item as Ruang;
-      setRuangNama(r.nama);
       setRuangKode(r.kode);
+      setRuangNama(r.nama);
       setRuangDeskripsi(r.deskripsi || '');
     } else if (activeTab === 'rak') {
-      const r = item as Rak;
-      setRakRuangId(r.ruang_id);
-      setRakKode(r.kode);
-      setRakNama(`Rak ${r.kode}`);
-    } else if (activeTab === 'shaf') {
-      const s = item as Shaf;
-      const parentRak = rakList.find((r) => r.id === s.rak_id);
-      setShafRuangId(parentRak?.ruang_id || null);
-      setShafRakId(s.rak_id);
-      setShafKode(s.kode);
-      setShafNama(`Shaf ${s.kode}`);
-    } else if (activeTab === 'boks') {
-      const b = item as Boks;
-      const parentShaf = shafList.find((s) => s.id === b.shaf_id);
-      const parentRak = rakList.find((r) => r.id === parentShaf?.rak_id);
-      setBoksRuangId(parentRak?.ruang_id || null);
-      setBoksRakId(parentShaf?.rak_id || null);
-      setBoksShafId(b.shaf_id);
-      setBoksNomor(b.nomor);
-      setBoksKapasitas(b.kapasitas || 50);
+      const rak = item as Rak;
+      setRakKode(rak.kode);
+      setRakRuangId(rak.ruang_id || null);
+    } else if (activeTab === 'tingkat') {
+      const t = item as Shaf;
+      setTingkatKode(t.kode);
+      setTingkatRakId(t.rak_id);
+    } else {
+      const alb = item as Album;
+      setAlbumRakId(alb.rak_id);
+      setAlbumNomor(String(alb.nomor_album));
+      setAlbumTingkat(alb.tingkat || '1');
+      setAlbumPosisi(alb.posisi || '');
+      setAlbumKapasitas(alb.kapasitas || 30);
     }
 
     setShowModal(true);
   };
 
-  // Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
       if (activeTab === 'ruang') {
-        if (!ruangNama.trim() || !ruangKode.trim()) {
-          setFieldErrors({
-            nama: !ruangNama.trim() ? 'Nama ruang wajib diisi' : '',
-            kode: !ruangKode.trim() ? 'Kode ruang wajib diisi' : '',
-          });
+        if (!ruangKode.trim() || !ruangNama.trim()) {
+          toast.error('Kode dan Nama ruang wajib diisi');
           setIsSubmitting(false);
           return;
         }
-
         if (modalMode === 'add') {
-          await createRuang({
-            nama: ruangNama.trim(),
-            kode: ruangKode.trim().toUpperCase(),
-            deskripsi: ruangDeskripsi.trim() || undefined,
-          });
+          await createRuang({ kode: ruangKode.trim(), nama: ruangNama.trim(), deskripsi: ruangDeskripsi.trim() });
+          toast.success('Ruangan berhasil ditambahkan!');
         } else if (editingItem) {
-          await updateRuang(editingItem.id, {
-            nama: ruangNama.trim(),
-            kode: ruangKode.trim().toUpperCase(),
-            deskripsi: ruangDeskripsi.trim() || undefined,
-          });
+          await updateRuang(editingItem.id, { kode: ruangKode.trim(), nama: ruangNama.trim(), deskripsi: ruangDeskripsi.trim() });
+          toast.success('Ruangan berhasil diperbarui!');
         }
       } else if (activeTab === 'rak') {
-        if (!rakRuangId || !rakKode.trim()) {
-          setFieldErrors({
-            ruang_id: !rakRuangId ? 'Pilih ruang induk terlebih dahulu' : '',
-            kode: !rakKode.trim() ? 'Kode rak wajib diisi' : '',
-          });
+        if (!rakKode.trim() || !rakRuangId) {
+          toast.error('Kode rak dan Ruangan induk wajib diisi');
           setIsSubmitting(false);
           return;
         }
-
         if (modalMode === 'add') {
-          await createRak({
-            ruang_id: rakRuangId,
-            kode: rakKode.trim().toUpperCase(),
-            nama: rakNama.trim() || undefined,
-          });
+          await createRak({ kode: rakKode.trim(), ruang_id: rakRuangId });
+          toast.success('Rak berhasil ditambahkan!');
         } else if (editingItem) {
-          await updateRak(editingItem.id, {
-            ruang_id: rakRuangId,
-            kode: rakKode.trim().toUpperCase(),
-            nama: rakNama.trim() || undefined,
-          });
+          await updateRak(editingItem.id, { kode: rakKode.trim(), ruang_id: rakRuangId });
+          toast.success('Rak berhasil diperbarui!');
         }
-      } else if (activeTab === 'shaf') {
-        if (!shafRakId || !shafKode.trim()) {
-          setFieldErrors({
-            rak_id: !shafRakId ? 'Pilih rak induk terlebih dahulu' : '',
-            kode: !shafKode.trim() ? 'Kode shaf wajib diisi' : '',
-          });
+      } else if (activeTab === 'tingkat') {
+        if (!tingkatKode.trim() || !tingkatRakId) {
+          toast.error('Nomor/Nama tingkat dan Rak induk wajib diisi');
           setIsSubmitting(false);
           return;
         }
-
         if (modalMode === 'add') {
-          await createShaf({
-            rak_id: shafRakId,
-            kode: shafKode.trim().toUpperCase(),
-            nama: shafNama.trim() || undefined,
-          });
+          await createTingkat({ kode: tingkatKode.trim(), rak_id: tingkatRakId });
+          toast.success('Tingkatan rak berhasil ditambahkan!');
         } else if (editingItem) {
-          await updateShaf(editingItem.id, {
-            rak_id: shafRakId,
-            kode: shafKode.trim().toUpperCase(),
-            nama: shafNama.trim() || undefined,
-          });
+          await updateTingkat(editingItem.id, { kode: tingkatKode.trim(), rak_id: tingkatRakId });
+          toast.success('Tingkatan rak berhasil diperbarui!');
         }
-      } else if (activeTab === 'boks') {
-        if (!boksShafId || !boksNomor.trim() || !boksKapasitas) {
-          setFieldErrors({
-            shaf_id: !boksShafId ? 'Pilih shaf induk terlebih dahulu' : '',
-            nomor: !boksNomor.trim() ? 'Nomor boks wajib diisi' : '',
-            kapasitas: !boksKapasitas ? 'Kapasitas maksimal wajib diisi' : '',
-          });
+      } else {
+        // Tab Album
+        const numAlbum = parseInt(albumNomor, 10);
+        if (isNaN(numAlbum) || numAlbum <= 0) {
+          toast.error('Nomor album harus berupa angka bulat positif');
           setIsSubmitting(false);
           return;
         }
+        if (!albumRakId) {
+          toast.error('Pilih rak penyimpanan terlebih dahulu');
+          setIsSubmitting(false);
+          return;
+        }
+        const payload = {
+          rak_id: albumRakId,
+          nomor_album: numAlbum,
+          tingkat: albumTingkat.trim() || null,
+          posisi: albumPosisi.trim() || null,
+          kapasitas: albumKapasitas,
+        };
 
         if (modalMode === 'add') {
-          await createBoks({
-            shaf_id: boksShafId,
-            nomor: boksNomor.trim(),
-            kapasitas: Number(boksKapasitas),
-          });
+          await createAlbum(payload);
+          toast.success('Album berhasil ditambahkan!');
         } else if (editingItem) {
-          await updateBoks(editingItem.id, {
-            shaf_id: boksShafId,
-            nomor: boksNomor.trim(),
-            kapasitas: Number(boksKapasitas),
-          });
+          await updateAlbum(editingItem.id, payload);
+          toast.success('Album berhasil diperbarui!');
         }
       }
 
       setShowModal(false);
       resetForm();
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'errors' in err) {
-        const serverErrors = (err as { errors: Record<string, string[]> }).errors;
-        const mappedErrors: Record<string, string> = {};
-        for (const [key, msgs] of Object.entries(serverErrors)) {
-          mappedErrors[key] = msgs[0] || 'Validasi gagal';
-        }
-        setFieldErrors(mappedErrors);
-      } else {
-        const msg =
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: unknown }).message)
-            : 'Terjadi kesalahan saat menyimpan data.';
-        toast.error(msg);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Delete Action
-  const handleConfirmDelete = async () => {
-    setIsSubmitting(true);
-    try {
-      if (deleteConfirm.type === 'ruang') {
-        await deleteRuang(deleteConfirm.id);
-      } else if (deleteConfirm.type === 'rak') {
-        await deleteRak(deleteConfirm.id);
-      } else if (deleteConfirm.type === 'shaf') {
-        await deleteShaf(deleteConfirm.id);
-      } else if (deleteConfirm.type === 'boks') {
-        await deleteBoks(deleteConfirm.id);
-      }
-      setDeleteConfirm({ show: false, type: 'ruang', id: 0, title: '' });
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Gagal menghapus entitas lokasi.';
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Gagal menyimpan data';
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleConfirmDelete = async () => {
+    setIsSubmitting(true);
+    try {
+      if (deleteConfirm.type === 'ruang') {
+        await deleteRuang(deleteConfirm.id);
+        toast.success('Ruangan berhasil dihapus!');
+      } else if (deleteConfirm.type === 'rak') {
+        await deleteRak(deleteConfirm.id);
+        toast.success('Rak berhasil dihapus!');
+      } else if (deleteConfirm.type === 'tingkat') {
+        await deleteTingkat(deleteConfirm.id);
+        toast.success('Tingkatan berhasil dihapus!');
+      } else {
+        await deleteAlbum(deleteConfirm.id);
+        toast.success('Album berhasil dihapus!');
+      }
+      setDeleteConfirm({ show: false, type: 'album', id: 0, title: '' });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Gagal menghapus data';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getTabTitle = (tab: TabType) => {
+    switch (tab) {
+      case 'ruang':
+        return 'Ruangan';
+      case 'rak':
+        return 'Rak';
+      case 'tingkat':
+        return 'Tingkatan';
+      case 'album':
+        return 'Album';
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans">
       {/* Header Halaman */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border-color">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border-color">
         <div>
-          <h2 className="text-xl font-black text-primary-dark tracking-tight flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-primary" />
-            <span>Master Data Lokasi Fisik Arsip</span>
-          </h2>
+          <h1 className="text-xl font-bold text-primary-dark flex items-center gap-2">
+            <Archive className="w-5 h-5 text-primary" />
+            Master Lokasi Fisik Arsip DI-302
+          </h1>
           <p className="text-xs text-text-secondary">
-            Konfigurasi tata letak berjenjang: Ruang Penyimpanan → Rak → Shaf → Boks Arsip
+            Kelola hirarki 4 tingkat: Ruangan &rarr; Rak &rarr; Tingkatan &rarr; Album Arsip
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleOpenAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-light text-white text-xs font-bold shadow-sm transition-all self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold text-xs shadow-sm transition-all self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4 text-accent" />
-          <span>Tambah {activeTab.toUpperCase()} Baru</span>
+          <Plus className="w-4 h-4" />
+          <span>Tambah {getTabTitle(activeTab)}</span>
         </button>
       </div>
 
-      {/* Tab Navigasi Level Lokasi */}
-      <div className="flex items-center gap-2 border-b border-border-color overflow-x-auto">
-        {[
-          { key: 'ruang', label: '1. Ruang Arsip', icon: Building2, count: ruangList.length },
-          { key: 'rak', label: '2. Rak Lemari', icon: Layers, count: rakList.length },
-          { key: 'shaf', label: '3. Shaf / Ambalan', icon: Archive, count: shafList.length },
-          { key: 'boks', label: '4. Boks Arsip', icon: Box, count: boksList.length },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
+      {/* Tab Navigasi 4 Tingkat */}
+      <div className="flex border-b border-border-color overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveTab('ruang')}
+          className={`pb-3 px-5 text-xs font-bold border-b-2 whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'ruang'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-main'
+          }`}
+        >
+          <Building className="w-4 h-4" />
+          1. Ruangan ({ruangList.length})
+        </button>
 
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key as 'ruang' | 'rak' | 'shaf' | 'boks')}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold font-sans border-b-2 transition-all whitespace-nowrap ${
-                isActive
-                  ? 'border-primary text-primary bg-primary/5'
-                  : 'border-transparent text-text-secondary hover:text-text-main'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  isActive ? 'bg-primary text-white' : 'bg-gray-100 text-text-secondary'
-                }`}
-              >
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
+        <button
+          type="button"
+          onClick={() => setActiveTab('rak')}
+          className={`pb-3 px-5 text-xs font-bold border-b-2 whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'rak'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-main'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          2. Rak Lemari ({rakList.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('tingkat')}
+          className={`pb-3 px-5 text-xs font-bold border-b-2 whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'tingkat'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-main'
+          }`}
+        >
+          <AlignJustify className="w-4 h-4" />
+          3. Tingkatan Rak ({shafList.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('album')}
+          className={`pb-3 px-5 text-xs font-bold border-b-2 whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'album'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-main'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          4. Album Arsip ({albumList.length})
+        </button>
       </div>
 
       {/* Konten Tab */}
       {isLoading.global ? (
         <SkeletonTable rows={6} />
+      ) : activeTab === 'ruang' ? (
+        /* TAB 1 — RUANGAN */
+        <div className="bg-white rounded-xl border border-border-color shadow-sm overflow-hidden text-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-primary-dark text-white font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4 w-[10%]">No.</th>
+                  <th className="py-3 px-4 w-[25%]">Kode Ruang</th>
+                  <th className="py-3 px-4 w-[35%]">Nama Ruang</th>
+                  <th className="py-3 px-4">Deskripsi</th>
+                  <th className="py-3 px-4 text-center w-[15%]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {ruangList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-text-secondary">
+                      Belum ada ruangan arsip yang terdaftar.
+                    </td>
+                  </tr>
+                ) : (
+                  ruangList.map((ruang, idx) => (
+                    <tr key={ruang.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-4 text-text-secondary font-mono">{idx + 1}</td>
+                      <td className="py-3 px-4 font-bold text-primary font-mono">{ruang.kode}</td>
+                      <td className="py-3 px-4 font-medium text-text-main">{ruang.nama}</td>
+                      <td className="py-3 px-4 text-text-secondary">{ruang.deskripsi || '-'}</td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(ruang)}
+                            className="p-1.5 text-text-secondary hover:text-primary hover:bg-slate-100 rounded-lg transition-all"
+                            title="Edit Ruang"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeleteConfirm({
+                                show: true,
+                                type: 'ruang',
+                                id: ruang.id,
+                                title: `Ruang ${ruang.nama} (${ruang.kode})`,
+                              })
+                            }
+                            className="p-1.5 text-text-secondary hover:text-danger hover:bg-red-50 rounded-lg transition-all"
+                            title="Hapus Ruang"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === 'rak' ? (
+        /* TAB 2 — RAK */
+        <div className="bg-white rounded-xl border border-border-color shadow-sm overflow-hidden text-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-primary-dark text-white font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4 w-[10%]">No.</th>
+                  <th className="py-3 px-4 w-[30%]">Kode Rak</th>
+                  <th className="py-3 px-4 w-[40%]">Ruangan Induk</th>
+                  <th className="py-3 px-4 text-center w-[20%]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {rakList.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-text-secondary">
+                      Belum ada rak yang terdaftar.
+                    </td>
+                  </tr>
+                ) : (
+                  rakList.map((rak, idx) => (
+                    <tr key={rak.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-4 text-text-secondary font-mono">{idx + 1}</td>
+                      <td className="py-3 px-4 font-bold text-primary font-mono">{rak.kode}</td>
+                      <td className="py-3 px-4 font-medium text-text-main">
+                        {rak.ruang ? `${rak.ruang.nama} (${rak.ruang.kode})` : '-'}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(rak)}
+                            className="p-1.5 text-text-secondary hover:text-primary hover:bg-slate-100 rounded-lg transition-all"
+                            title="Edit Rak"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeleteConfirm({
+                                show: true,
+                                type: 'rak',
+                                id: rak.id,
+                                title: `Rak ${rak.kode}`,
+                              })
+                            }
+                            className="p-1.5 text-text-secondary hover:text-danger hover:bg-red-50 rounded-lg transition-all"
+                            title="Hapus Rak"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === 'tingkat' ? (
+        /* TAB 3 — TINGKATAN RAK */
+        <div className="bg-white rounded-xl border border-border-color shadow-sm overflow-hidden text-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-primary-dark text-white font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4 w-[10%]">No.</th>
+                  <th className="py-3 px-4 w-[25%]">Nama / Nomor Tingkat</th>
+                  <th className="py-3 px-4 w-[30%]">Rak Lemari</th>
+                  <th className="py-3 px-4 w-[20%]">Ruangan</th>
+                  <th className="py-3 px-4 text-center w-[15%]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {shafList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-text-secondary">
+                      Belum ada tingkatan rak yang terdaftar.
+                    </td>
+                  </tr>
+                ) : (
+                  shafList.map((t, idx) => (
+                    <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-4 text-text-secondary font-mono">{idx + 1}</td>
+                      <td className="py-3 px-4 font-bold text-primary">Tingkat {t.kode}</td>
+                      <td className="py-3 px-4 font-medium text-text-main">
+                        Rak {t.rak?.kode || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-text-secondary">
+                        {t.rak?.ruang?.nama || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(t)}
+                            className="p-1.5 text-text-secondary hover:text-primary hover:bg-slate-100 rounded-lg transition-all"
+                            title="Edit Tingkat"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeleteConfirm({
+                                show: true,
+                                type: 'tingkat',
+                                id: t.id,
+                                title: `Tingkat ${t.kode} pada Rak ${t.rak?.kode || '-'}`,
+                              })
+                            }
+                            className="p-1.5 text-text-secondary hover:text-danger hover:bg-red-50 rounded-lg transition-all"
+                            title="Hapus Tingkat"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
-        <div className="bg-white rounded-xl border border-border-color shadow-sm overflow-hidden">
-          {/* TAB 1: RUANG */}
-          {activeTab === 'ruang' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-primary-dark text-white font-bold uppercase">
-                    <th className="py-3 px-4 w-[8%] text-center">ID</th>
-                    <th className="py-3 px-4 w-[16%]">Kode Ruang</th>
-                    <th className="py-3 px-4 w-[28%]">Nama Ruangan</th>
-                    <th className="py-3 px-4 w-[28%]">Deskripsi</th>
-                    <th className="py-3 px-4 w-[10%] text-center">Jumlah Rak</th>
-                    <th className="py-3 px-4 w-[10%] text-center">Aksi</th>
+        /* TAB 4 — ALBUM ARSIP */
+        <div className="bg-white rounded-xl border border-border-color shadow-sm overflow-hidden text-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-primary-dark text-white font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4">No. Album</th>
+                  <th className="py-3 px-3 text-center">Rak</th>
+                  <th className="py-3 px-3 text-center">Tingkat</th>
+                  <th className="py-3 px-3 text-center">Posisi</th>
+                  <th className="py-3 px-3 text-center">Kapasitas</th>
+                  <th className="py-3 px-3 text-center">Terisi</th>
+                  <th className="py-3 px-3 text-center">Sisa</th>
+                  <th className="py-3 px-4 text-center w-[12%]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {albumList.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-text-secondary">
+                      Belum ada album arsip yang terdaftar.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-border-color">
-                  {ruangList.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-text-secondary italic">
-                        Belum ada data ruang arsip.
+                ) : (
+                  albumList.map((alb) => (
+                    <tr key={alb.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-4 font-bold text-text-main flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-primary" />
+                        Album {alb.nomor_album}
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono font-semibold">
+                        {alb.rak_kode || 'E'}
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono text-text-secondary">
+                        {alb.tingkat ? `Tingkat ${alb.tingkat}` : 'Tingkat 1'}
+                      </td>
+                      <td className="py-3 px-3 text-center text-text-secondary">
+                        {alb.posisi || '-'}
+                      </td>
+                      <td className="py-3 px-3 text-center font-semibold text-text-main">
+                        {alb.kapasitas} berkas
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                          {alb.terisi}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono">
+                        <span
+                          className={`font-bold ${
+                            alb.sisa === 0
+                              ? 'text-danger'
+                              : alb.sisa <= 5
+                              ? 'text-amber-600'
+                              : 'text-text-secondary'
+                          }`}
+                        >
+                          {alb.sisa}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(alb)}
+                            className="p-1.5 text-text-secondary hover:text-primary hover:bg-slate-100 rounded-lg transition-all"
+                            title="Edit Album"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeleteConfirm({
+                                show: true,
+                                type: 'album',
+                                id: alb.id,
+                                title: `Album ${alb.nomor_album}`,
+                              })
+                            }
+                            className="p-1.5 text-text-secondary hover:text-danger hover:bg-red-50 rounded-lg transition-all"
+                            title="Hapus Album"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    ruangList.map((ruang) => (
-                      <tr key={ruang.id} className="hover:bg-primary/5">
-                        <td className="py-3 px-4 font-mono text-center text-text-secondary">{ruang.id}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-primary">{ruang.kode}</td>
-                        <td className="py-3 px-4 font-semibold text-text-main">{ruang.nama}</td>
-                        <td className="py-3 px-4 text-text-secondary">{ruang.deskripsi || '-'}</td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="inline-flex px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px]">
-                            {ruang.raks_count ?? '-'} Rak
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(ruang)}
-                              title="Edit Ruang"
-                              className="p-1.5 rounded-lg border border-border-color hover:bg-gray-100 text-text-secondary transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDeleteConfirm({
-                                  show: true,
-                                  type: 'ruang',
-                                  id: ruang.id,
-                                  title: `Ruang ${ruang.kode} (${ruang.nama})`,
-                                })
-                              }
-                              title="Hapus Ruang"
-                              className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* TAB 2: RAK */}
-          {activeTab === 'rak' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-primary-dark text-white font-bold uppercase">
-                    <th className="py-3 px-4 w-[8%] text-center">ID</th>
-                    <th className="py-3 px-4 w-[20%]">Kode Rak</th>
-                    <th className="py-3 px-4 w-[35%]">Ruang Induk</th>
-                    <th className="py-3 px-4 w-[17%] text-center">Jumlah Shaf</th>
-                    <th className="py-3 px-4 w-[20%] text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-color">
-                  {rakList.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-text-secondary italic">
-                        Belum ada data rak lemari.
-                      </td>
-                    </tr>
-                  ) : (
-                    rakList.map((rak) => (
-                      <tr key={rak.id} className="hover:bg-primary/5">
-                        <td className="py-3 px-4 font-mono text-center text-text-secondary">{rak.id}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-primary">{rak.kode}</td>
-                        <td className="py-3 px-4 font-semibold text-text-main">
-                          {rak.ruang ? `${rak.ruang.kode} — ${rak.ruang.nama}` : `Ruang ID ${rak.ruang_id}`}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="inline-flex px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px]">
-                            {rak.shafs_count ?? '-'} Shaf
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(rak)}
-                              title="Edit Rak"
-                              className="p-1.5 rounded-lg border border-border-color hover:bg-gray-100 text-text-secondary transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDeleteConfirm({
-                                  show: true,
-                                  type: 'rak',
-                                  id: rak.id,
-                                  title: `Rak ${rak.kode}`,
-                                })
-                              }
-                              title="Hapus Rak"
-                              className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* TAB 3: SHAF */}
-          {activeTab === 'shaf' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-primary-dark text-white font-bold uppercase">
-                    <th className="py-3 px-4 w-[8%] text-center">ID</th>
-                    <th className="py-3 px-4 w-[20%]">Kode Shaf</th>
-                    <th className="py-3 px-4 w-[22%]">Rak Induk</th>
-                    <th className="py-3 px-4 w-[25%]">Ruang</th>
-                    <th className="py-3 px-4 w-[10%] text-center">Jumlah Boks</th>
-                    <th className="py-3 px-4 w-[15%] text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-color">
-                  {shafList.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-text-secondary italic">
-                        Belum ada data shaf / ambalan.
-                      </td>
-                    </tr>
-                  ) : (
-                    shafList.map((shaf) => (
-                      <tr key={shaf.id} className="hover:bg-primary/5">
-                        <td className="py-3 px-4 font-mono text-center text-text-secondary">{shaf.id}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-primary">{shaf.kode}</td>
-                        <td className="py-3 px-4 font-semibold text-text-main">
-                          {shaf.rak ? `Rak ${shaf.rak.kode}` : `Rak ID ${shaf.rak_id}`}
-                        </td>
-                        <td className="py-3 px-4 text-text-secondary">
-                          {shaf.rak?.ruang ? `${shaf.rak.ruang.nama}` : '-'}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="inline-flex px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px]">
-                            {shaf.boks_count ?? '-'} Boks
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(shaf)}
-                              title="Edit Shaf"
-                              className="p-1.5 rounded-lg border border-border-color hover:bg-gray-100 text-text-secondary transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDeleteConfirm({
-                                  show: true,
-                                  type: 'shaf',
-                                  id: shaf.id,
-                                  title: `Shaf ${shaf.kode}`,
-                                })
-                              }
-                              title="Hapus Shaf"
-                              className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* TAB 4: BOKS */}
-          {activeTab === 'boks' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-primary-dark text-white font-bold uppercase">
-                    <th className="py-3 px-4 w-[6%] text-center">ID</th>
-                    <th className="py-3 px-4 w-[14%]">Nomor Boks</th>
-                    <th className="py-3 px-4 w-[16%]">Shaf Induk</th>
-                    <th className="py-3 px-4 w-[14%]">Rak</th>
-                    <th className="py-3 px-4 w-[16%]">Ruang</th>
-                    <th className="py-3 px-4 w-[12%]">Kapasitas</th>
-                    <th className="py-3 px-4 w-[12%]">Status Keterisian</th>
-                    <th className="py-3 px-4 w-[10%] text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-color">
-                  {boksList.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-text-secondary italic">
-                        Belum ada data boks arsip.
-                      </td>
-                    </tr>
-                  ) : (
-                    boksList.map((boks) => {
-                      const kapasitas = boks.kapasitas || 50;
-                      const terisi = boks.terisi || 0;
-                      const persentase = Math.min(Math.round((terisi / kapasitas) * 100), 100);
-
-                      let barColor = 'bg-green-600';
-                      let badgeStyle = 'bg-green-100 text-green-800';
-
-                      if (persentase >= 90) {
-                        barColor = 'bg-red-600';
-                        badgeStyle = 'bg-red-100 text-red-800';
-                      } else if (persentase >= 70) {
-                        barColor = 'bg-amber-500';
-                        badgeStyle = 'bg-amber-100 text-amber-800';
-                      }
-
-                      return (
-                        <tr key={boks.id} className="hover:bg-primary/5">
-                          <td className="py-3 px-4 font-mono text-center text-text-secondary">{boks.id}</td>
-                          <td className="py-3 px-4 font-mono font-black text-primary">
-                            Boks {boks.nomor}
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-text-main">
-                            {boks.shaf ? `Shaf ${boks.shaf.kode}` : `Shaf ID ${boks.shaf_id}`}
-                          </td>
-                          <td className="py-3 px-4 text-text-secondary">
-                            {boks.shaf?.rak ? `Rak ${boks.shaf.rak.kode}` : '-'}
-                          </td>
-                          <td className="py-3 px-4 text-text-secondary">
-                            {boks.shaf?.rak?.ruang ? boks.shaf.rak.ruang.nama : '-'}
-                          </td>
-                          <td className="py-3 px-4 font-bold text-text-main">
-                            {kapasitas} Dokumen
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="space-y-1">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${badgeStyle}`}
-                              >
-                                {terisi}/{kapasitas} Terisi
-                              </span>
-                              <div className="w-24 bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full ${barColor} transition-all duration-300`}
-                                  style={{ width: `${persentase}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(boks)}
-                                title="Edit Boks"
-                                className="p-1.5 rounded-lg border border-border-color hover:bg-gray-100 text-text-secondary transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirm({
-                                    show: true,
-                                    type: 'boks',
-                                    id: boks.id,
-                                    title: `Boks ${boks.nomor}`,
-                                  })
-                                }
-                                title="Hapus Boks"
-                                className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* MODAL FORM TAMBAH / EDIT DENGAN PIIHAN INDUK BERURUTAN       */}
-      {/* ============================================================ */}
+      {/* MODAL FORM TAMBAH / EDIT */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in font-sans">
-          <div
-            className="fixed inset-0"
-            onClick={isSubmitting ? undefined : () => setShowModal(false)}
-            aria-hidden="true"
-          />
-
-          <div
-            className={`relative w-full ${
-              activeTab === 'boks' ? 'max-w-lg' : 'max-w-md'
-            } bg-white rounded-2xl shadow-2xl border border-border-color p-6 z-10 max-h-[90vh] overflow-y-auto animate-modal-in`}
-          >
-            {/* Header Modal */}
-            <div className="flex items-center justify-between pb-3 border-b border-border-color mb-4">
-              <h3 className="text-base font-bold text-primary-dark">
-                {modalMode === 'add' ? 'Tambah' : 'Edit'}{' '}
-                {activeTab === 'ruang'
-                  ? 'Ruang Arsip'
-                  : activeTab === 'rak'
-                  ? 'Rak Lemari'
-                  : activeTab === 'shaf'
-                  ? 'Shaf / Ambalan'
-                  : 'Boks Arsip'}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-border-color overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-color bg-slate-50">
+              <h3 className="font-bold text-sm text-primary-dark">
+                {modalMode === 'add' ? 'Tambah' : 'Edit'} {getTabTitle(activeTab)}
               </h3>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                disabled={isSubmitting}
-                className="p-1.5 rounded-full text-text-secondary hover:bg-gray-100 transition-colors"
+                className="text-text-secondary hover:text-text-main p-1 rounded-lg"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              {/* ============================================================ */}
-              {/* FORM TAB 1: RUANG                                            */}
-              {/* ============================================================ */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
               {activeTab === 'ruang' && (
                 <>
                   <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      Nama Ruang <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={ruangNama}
-                      onChange={(e) => {
-                        setRuangNama(e.target.value);
-                        setFieldErrors((prev) => ({ ...prev, nama: '' }));
-                      }}
-                      placeholder="Contoh: Ruang Arsip A"
-                      required
-                      className="w-full px-3 py-2 rounded-xl border border-border-color focus:ring-2 focus:ring-primary focus:outline-hidden"
-                    />
-                    {fieldErrors.nama && (
-                      <p className="text-red-500 text-[11px] mt-1">{fieldErrors.nama}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      Kode Ruang <span className="text-red-500">*</span>
+                    <label className="block font-bold text-text-main mb-1">
+                      Kode Ruang <span className="text-danger">*</span>
                     </label>
                     <input
                       type="text"
                       value={ruangKode}
-                      onChange={(e) => {
-                        setRuangKode(e.target.value.toUpperCase());
-                        setFieldErrors((prev) => ({ ...prev, kode: '' }));
-                      }}
-                      placeholder="Contoh: RA-A"
+                      onChange={(e) => setRuangKode(e.target.value.toUpperCase())}
+                      placeholder="Contoh: RA-DI302"
+                      className="w-full px-3 py-2 border border-border-color rounded-xl font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-border-color font-mono focus:ring-2 focus:ring-primary focus:outline-hidden"
                     />
-                    <p className="text-[10px] text-text-secondary mt-1">
-                      Kode unik untuk identifikasi ruang (otomatis huruf kapital).
-                    </p>
-                    {fieldErrors.kode && (
-                      <p className="text-red-500 text-[11px] mt-1">{fieldErrors.kode}</p>
-                    )}
                   </div>
-
                   <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      Deskripsi (Opsional)
+                    <label className="block font-bold text-text-main mb-1">
+                      Nama Ruangan <span className="text-danger">*</span>
                     </label>
+                    <input
+                      type="text"
+                      value={ruangNama}
+                      onChange={(e) => setRuangNama(e.target.value)}
+                      placeholder="Contoh: Ruang Arsip DI-302"
+                      className="w-full px-3 py-2 border border-border-color rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-text-main mb-1">Deskripsi Ruangan</label>
                     <textarea
-                      rows={3}
+                      rows={2}
                       value={ruangDeskripsi}
                       onChange={(e) => setRuangDeskripsi(e.target.value)}
-                      placeholder="Contoh: Ruang penyimpanan dokumen tahun 2020-2024"
-                      className="w-full px-3 py-2 rounded-xl border border-border-color focus:ring-2 focus:ring-primary focus:outline-hidden"
+                      placeholder="Deskripsi atau catatan ruangan..."
+                      className="w-full px-3 py-2 border border-border-color rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     />
                   </div>
                 </>
               )}
 
-              {/* ============================================================ */}
-              {/* FORM TAB 2: RAK (WAJIB PILIH RUANG INDUK)                    */}
-              {/* ============================================================ */}
               {activeTab === 'rak' && (
                 <>
                   <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      Pilih Ruang Induk <span className="text-red-500">*</span>
+                    <label className="block font-bold text-text-main mb-1">
+                      Ruangan Induk <span className="text-danger">*</span>
                     </label>
                     <select
                       value={rakRuangId || ''}
-                      onChange={(e) => {
-                        setRakRuangId(e.target.value ? Number(e.target.value) : null);
-                        setFieldErrors((prev) => ({ ...prev, ruang_id: '' }));
-                      }}
+                      onChange={(e) => setRakRuangId(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-border-color rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-border-color bg-white focus:ring-2 focus:ring-primary focus:outline-hidden"
                     >
-                      <option value="">-- Pilih Ruang --</option>
+                      <option value="">Pilih Ruangan...</option>
                       {ruangList.map((ruang) => (
                         <option key={ruang.id} value={ruang.id}>
-                          {ruang.kode} — {ruang.nama}
+                          {ruang.nama} ({ruang.kode})
                         </option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-text-secondary mt-1">Rak ini berada di ruang mana?</p>
-                    {fieldErrors.ruang_id && (
-                      <p className="text-red-500 text-[11px] mt-1">{fieldErrors.ruang_id}</p>
-                    )}
                   </div>
-
                   <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      Kode Rak <span className="text-red-500">*</span>
+                    <label className="block font-bold text-text-main mb-1">
+                      Kode / Nama Rak <span className="text-danger">*</span>
                     </label>
                     <input
                       type="text"
                       value={rakKode}
-                      onChange={(e) => {
-                        setRakKode(e.target.value.toUpperCase());
-                        setFieldErrors((prev) => ({ ...prev, kode: '' }));
-                      }}
-                      placeholder="Contoh: RA-A-01"
+                      onChange={(e) => setRakKode(e.target.value.toUpperCase())}
+                      placeholder="Contoh: E, KIRI, RAK-01"
+                      className="w-full px-3 py-2 border border-border-color rounded-xl font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-border-color font-mono focus:ring-2 focus:ring-primary focus:outline-hidden"
-                    />
-                    <p className="text-[10px] text-text-secondary mt-1">
-                      Kode unik rak dalam ruang ini (contoh: RA-A-01).
-                    </p>
-                    {fieldErrors.kode && (
-                      <p className="text-red-500 text-[11px] mt-1">{fieldErrors.kode}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      Nama / Label (Opsional)
-                    </label>
-                    <input
-                      type="text"
-                      value={rakNama}
-                      onChange={(e) => setRakNama(e.target.value)}
-                      placeholder="Contoh: Rak Lemari 1"
-                      className="w-full px-3 py-2 rounded-xl border border-border-color focus:ring-2 focus:ring-primary focus:outline-hidden"
                     />
                   </div>
                 </>
               )}
 
-              {/* ============================================================ */}
-              {/* FORM TAB 3: SHAF (CASCADING: RUANG -> RAK)                   */}
-              {/* ============================================================ */}
-              {activeTab === 'shaf' && (
+              {activeTab === 'tingkat' && (
                 <>
                   <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      1. Pilih Ruang Induk <span className="text-red-500">*</span>
+                    <label className="block font-bold text-text-main mb-1">
+                      Rak Induk <span className="text-danger">*</span>
                     </label>
                     <select
-                      value={shafRuangId || ''}
-                      onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : null;
-                        setShafRuangId(val);
-                        setShafRakId(null); // Reset rak pilihan saat ruang berganti
-                      }}
+                      value={tingkatRakId || ''}
+                      onChange={(e) => setTingkatRakId(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-border-color rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-border-color bg-white focus:ring-2 focus:ring-primary focus:outline-hidden"
                     >
-                      <option value="">-- Pilih Ruang dulu --</option>
-                      {ruangList.map((ruang) => (
-                        <option key={ruang.id} value={ruang.id}>
-                          {ruang.kode} — {ruang.nama}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      2. Pilih Rak Induk <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={shafRakId || ''}
-                      onChange={(e) => {
-                        setShafRakId(e.target.value ? Number(e.target.value) : null);
-                        setFieldErrors((prev) => ({ ...prev, rak_id: '' }));
-                      }}
-                      disabled={!shafRuangId}
-                      required
-                      className="w-full px-3 py-2 rounded-xl border border-border-color bg-white disabled:bg-gray-100 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:outline-hidden"
-                    >
-                      <option value="">
-                        {!shafRuangId ? '-- Pilih Ruang terlebih dahulu --' : '-- Pilih Rak --'}
-                      </option>
-                      {filteredRaksForShaf.map((rak) => (
+                      <option value="">Pilih Rak...</option>
+                      {rakList.map((rak) => (
                         <option key={rak.id} value={rak.id}>
-                          {rak.kode}
+                          Rak {rak.kode} {rak.ruang ? `(${rak.ruang.nama})` : ''}
                         </option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-text-secondary mt-1">Shaf ini berada di rak mana?</p>
-                    {fieldErrors.rak_id && (
-                      <p className="text-red-500 text-[11px] mt-1">{fieldErrors.rak_id}</p>
-                    )}
                   </div>
-
                   <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      3. Kode Shaf <span className="text-red-500">*</span>
+                    <label className="block font-bold text-text-main mb-1">
+                      Nama / Nomor Tingkat <span className="text-danger">*</span>
                     </label>
                     <input
                       type="text"
-                      value={shafKode}
-                      onChange={(e) => {
-                        setShafKode(e.target.value.toUpperCase());
-                        setFieldErrors((prev) => ({ ...prev, kode: '' }));
-                      }}
-                      placeholder="Contoh: SH-01"
+                      value={tingkatKode}
+                      onChange={(e) => setTingkatKode(e.target.value)}
+                      placeholder="Contoh: 1, 2, 3, 4"
+                      className="w-full px-3 py-2 border border-border-color rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-border-color font-mono focus:ring-2 focus:ring-primary focus:outline-hidden"
                     />
-                    {fieldErrors.kode && (
-                      <p className="text-red-500 text-[11px] mt-1">{fieldErrors.kode}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-text-main uppercase mb-1">
-                      Nama / Label (Opsional)
-                    </label>
-                    <input
-                      type="text"
-                      value={shafNama}
-                      onChange={(e) => setShafNama(e.target.value)}
-                      placeholder="Contoh: Shaf Tingkat 1"
-                      className="w-full px-3 py-2 rounded-xl border border-border-color focus:ring-2 focus:ring-primary focus:outline-hidden"
-                    />
+                    <p className="text-[11px] text-text-secondary mt-1">
+                      Contoh: Masukkan &quot;1&quot; untuk Tingkat 1, &quot;2&quot; untuk Tingkat 2.
+                    </p>
                   </div>
                 </>
               )}
 
-              {/* ============================================================ */}
-              {/* FORM TAB 4: BOKS (CASCADING 3 LEVEL: RUANG -> RAK -> SHAF)   */}
-              {/* ============================================================ */}
-              {activeTab === 'boks' && (
+              {activeTab === 'album' && (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block font-bold text-text-main uppercase mb-1">
-                        1. Ruang Induk <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={boksRuangId || ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? Number(e.target.value) : null;
-                          setBoksRuangId(val);
-                          setBoksRakId(null);
-                          setBoksShafId(null);
-                        }}
-                        required
-                        className="w-full px-2.5 py-2 rounded-xl border border-border-color bg-white focus:ring-2 focus:ring-primary focus:outline-hidden"
-                      >
-                        <option value="">-- Ruang --</option>
-                        {ruangList.map((ruang) => (
-                          <option key={ruang.id} value={ruang.id}>
-                            {ruang.kode}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-text-main uppercase mb-1">
-                        2. Rak Induk <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={boksRakId || ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? Number(e.target.value) : null;
-                          setBoksRakId(val);
-                          setBoksShafId(null);
-                        }}
-                        disabled={!boksRuangId}
-                        required
-                        className="w-full px-2.5 py-2 rounded-xl border border-border-color bg-white disabled:bg-gray-100 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:outline-hidden"
-                      >
-                        <option value="">-- Rak --</option>
-                        {filteredRaksForBoks.map((rak) => (
-                          <option key={rak.id} value={rak.id}>
-                            {rak.kode}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-text-main uppercase mb-1">
-                        3. Shaf Induk <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={boksShafId || ''}
-                        onChange={(e) => {
-                          setBoksShafId(e.target.value ? Number(e.target.value) : null);
-                          setFieldErrors((prev) => ({ ...prev, shaf_id: '' }));
-                        }}
-                        disabled={!boksRakId}
-                        required
-                        className="w-full px-2.5 py-2 rounded-xl border border-border-color bg-white disabled:bg-gray-100 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:outline-hidden"
-                      >
-                        <option value="">-- Shaf --</option>
-                        {filteredShafsForBoks.map((shaf) => (
-                          <option key={shaf.id} value={shaf.id}>
-                            {shaf.kode}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block font-bold text-text-main mb-1">
+                      Rak Penyimpanan <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      value={albumRakId || ''}
+                      onChange={(e) => setAlbumRakId(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-border-color rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      required
+                    >
+                      <option value="">Pilih Rak...</option>
+                      {rakList.map((rak) => (
+                        <option key={rak.id} value={rak.id}>
+                          Rak {rak.kode} {rak.ruang ? `(${rak.ruang.nama})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  {fieldErrors.shaf_id && (
-                    <p className="text-red-500 text-[11px]">{fieldErrors.shaf_id}</p>
-                  )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-bold text-text-main uppercase mb-1">
-                        Nomor Boks <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={boksNomor}
-                        onChange={(e) => {
-                          setBoksNomor(e.target.value);
-                          setFieldErrors((prev) => ({ ...prev, nomor: '' }));
-                        }}
-                        placeholder="Contoh: 001"
-                        required
-                        className="w-full px-3 py-2 rounded-xl border border-border-color font-mono focus:ring-2 focus:ring-primary focus:outline-hidden"
-                      />
-                      <p className="text-[10px] text-text-secondary mt-1">
-                        Nomor urut boks dalam shaf ini.
-                      </p>
-                      {fieldErrors.nomor && (
-                        <p className="text-red-500 text-[11px] mt-1">{fieldErrors.nomor}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-text-main uppercase mb-1">
-                        Kapasitas Maksimal <span className="text-red-500">*</span>
+                      <label className="block font-bold text-text-main mb-1">
+                        Nomor Album <span className="text-danger">*</span>
                       </label>
                       <input
                         type="number"
-                        min={1}
-                        max={500}
-                        value={boksKapasitas}
-                        onChange={(e) => {
-                          setBoksKapasitas(Number(e.target.value));
-                          setFieldErrors((prev) => ({ ...prev, kapasitas: '' }));
-                        }}
+                        min="1"
+                        value={albumNomor}
+                        onChange={(e) => setAlbumNomor(e.target.value)}
+                        placeholder="Contoh: 1, 2..."
+                        className="w-full px-3 py-2 border border-border-color rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         required
-                        className="w-full px-3 py-2 rounded-xl border border-border-color font-bold text-primary focus:ring-2 focus:ring-primary focus:outline-hidden"
                       />
-                      <p className="text-[10px] text-text-secondary mt-1">
-                        Rentang isi: 1 – 500 dokumen fisik.
-                      </p>
-                      {fieldErrors.kapasitas && (
-                        <p className="text-red-500 text-[11px] mt-1">{fieldErrors.kapasitas}</p>
-                      )}
+                    </div>
+                    <div>
+                      <label className="block font-bold text-text-main mb-1">Tingkatan Rak</label>
+                      <input
+                        type="text"
+                        value={albumTingkat}
+                        onChange={(e) => setAlbumTingkat(e.target.value)}
+                        placeholder="Contoh: 1, 2, 3, 4"
+                        className="w-full px-3 py-2 border border-border-color rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
                     </div>
                   </div>
 
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-[11px] flex items-start gap-2">
-                    <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                    <span>
-                      Kapasitas boks yang sudah terisi dokumen tidak dapat dikurangi di bawah jumlah berkas yang sedang tersimpan.
-                    </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-text-main mb-1">Posisi di Rak (Opsional)</label>
+                      <input
+                        type="text"
+                        value={albumPosisi}
+                        onChange={(e) => setAlbumPosisi(e.target.value)}
+                        placeholder="Contoh: Kiri, Kanan..."
+                        className="w-full px-3 py-2 border border-border-color rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-text-main mb-1">
+                        Kapasitas Berkas <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={albumKapasitas}
+                        onChange={(e) => setAlbumKapasitas(Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-border-color rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        required
+                      />
+                    </div>
                   </div>
                 </>
               )}
 
-              {/* Footer Tombol Modal */}
-              <div className="pt-4 border-t border-border-color flex justify-end gap-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-color">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  disabled={isSubmitting}
-                  className="px-4 py-2 border rounded-xl font-semibold text-text-secondary hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 rounded-xl border border-border-color text-text-secondary hover:text-text-main hover:bg-slate-50 font-bold transition-all"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary-light text-white font-bold rounded-xl shadow-sm transition-colors disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <LoadingSpinner size="sm" />
-                      <span>Menyimpan...</span>
-                    </>
-                  ) : (
-                    <span>{modalMode === 'add' ? 'Simpan' : 'Perbarui'}</span>
-                  )}
+                  {isSubmitting && <LoadingSpinner size="sm" />}
+                  <span>{modalMode === 'add' ? 'Simpan' : 'Perbarui'}</span>
                 </button>
               </div>
             </form>
@@ -1123,29 +866,23 @@ export default function MasterLokasiPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* MODAL KONFIRMASI HAPUS                                       */}
-      {/* ============================================================ */}
+      {/* MODAL KONFIRMASI HAPUS */}
       {deleteConfirm.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in font-sans">
-          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-border-color p-6 z-10 animate-modal-in text-center">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 mx-auto flex items-center justify-center mb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl border border-border-color p-6 text-center">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-danger">
               <AlertTriangle className="w-6 h-6" />
             </div>
-
-            <h3 className="text-base font-bold text-primary-dark mb-1">
-              Hapus {deleteConfirm.title}?
-            </h3>
-            <p className="text-xs text-text-secondary mb-5">
-              Tindakan ini tidak dapat dibatalkan. Pastikan tidak ada berkas atau entitas turunan di dalamnya.
+            <h3 className="font-bold text-base text-primary-dark mb-2">Konfirmasi Hapus</h3>
+            <p className="text-xs text-text-secondary mb-6 leading-relaxed">
+              Apakah Anda yakin ingin menghapus <strong>{deleteConfirm.title}</strong>? Aksi ini
+              tidak dapat dibatalkan jika masih ada relasi data di bawahnya.
             </p>
-
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
-                onClick={() => setDeleteConfirm({ show: false, type: 'ruang', id: 0, title: '' })}
-                disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl border border-border-color text-xs font-semibold hover:bg-gray-100 transition-colors"
+                onClick={() => setDeleteConfirm({ show: false, type: 'album', id: 0, title: '' })}
+                className="px-4 py-2 rounded-xl border border-border-color text-text-secondary hover:text-text-main font-bold text-xs"
               >
                 Batal
               </button>
@@ -1153,10 +890,10 @@ export default function MasterLokasiPage() {
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-danger hover:bg-red-700 text-white font-bold text-xs shadow-sm disabled:opacity-50 flex items-center gap-2"
               >
-                {isSubmitting ? <LoadingSpinner size="sm" /> : <Trash2 className="w-4 h-4" />}
-                <span>Hapus Sekarang</span>
+                {isSubmitting && <LoadingSpinner size="sm" />}
+                <span>Ya, Hapus</span>
               </button>
             </div>
           </div>

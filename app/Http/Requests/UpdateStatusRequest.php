@@ -16,6 +16,15 @@ class UpdateStatusRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('keterangan')) {
+            $this->merge([
+                'keterangan' => trim(strip_tags((string) $this->input('keterangan'))),
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -24,8 +33,9 @@ class UpdateStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status_fisik' => ['required', 'string', 'in:TERSEDIA,DIPINJAM,RUSAK,HILANG'],
-            'keterangan'   => ['nullable', 'string', 'max:255'],
+            'status_fisik'  => ['nullable', 'string', 'in:TERSEDIA,DIPINJAM,RUSAK,HILANG,SELESAI,PROSES'],
+            'status_berkas' => ['nullable', 'string', 'in:TERSEDIA,DIPINJAM,RUSAK,HILANG,SELESAI,PROSES'],
+            'keterangan'    => ['nullable', 'string', 'max:255'],
         ];
     }
 

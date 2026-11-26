@@ -37,4 +37,12 @@ class Rak extends Model
     {
         return $this->hasMany(Shaf::class, 'rak_id');
     }
+
+    /**
+     * Relasi ke seluruh Album di dalam Rak ini.
+     */
+    public function albums(): HasMany
+    {
+        return $this->hasMany(Album::class, 'rak_id');
+    }
 }

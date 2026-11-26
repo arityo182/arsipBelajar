@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Eye, MoveRight, RefreshCw } from 'lucide-react';
+import { Eye, MoveRight, RefreshCw, BookOpen, MapPin } from 'lucide-react';
 import { Dokumen } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
-import LokasiDisplay from './LokasiDisplay';
+import { formatTanggal, getStatusColor, getStatusLabel } from '@/lib/utils';
 
 export interface DokumenTableProps {
   dokumen: Dokumen[];
@@ -30,8 +30,8 @@ export const DokumenTable: React.FC<DokumenTableProps> = ({
   if (!dokumen || dokumen.length === 0) {
     return (
       <EmptyState
-        title="Tidak Ada Dokumen"
-        description="Belum ada data arsip fisik yang cocok dengan kriteria pencarian Anda."
+        title="Tidak Ada Berkas DI-302"
+        description="Belum ada data arsip fisik yang cocok dengan filter atau kata kunci pencarian Anda."
       />
     );
   }
@@ -44,12 +44,13 @@ export const DokumenTable: React.FC<DokumenTableProps> = ({
           <thead>
             <tr className="bg-primary-dark text-white text-xs font-bold uppercase tracking-wider">
               <th className="py-3.5 px-3 text-center w-[4%]">No</th>
-              <th className="py-3.5 px-4 w-[16%]">Nomor GU</th>
-              <th className="py-3.5 px-4 w-[13%]">NIB</th>
-              <th className="py-3.5 px-4 w-[18%]">Nama Pemilik</th>
-              <th className="py-3.5 px-4 w-[15%]">Desa / Kecamatan</th>
-              <th className="py-3.5 px-3 w-[11%]">Status Fisik</th>
-              <th className="py-3.5 px-4 w-[15%]">Lokasi Fisik</th>
+              <th className="py-3.5 px-4 w-[16%]">No. DI-302</th>
+              <th className="py-3.5 px-3 w-[11%]">Album</th>
+              <th className="py-3.5 px-4 w-[16%]">Nama Pemohon</th>
+              <th className="py-3.5 px-4 w-[16%]">Jenis Permohonan</th>
+              <th className="py-3.5 px-4 w-[14%]">Desa / Kec</th>
+              <th className="py-3.5 px-3 text-center w-[10%]">Status</th>
+              <th className="py-3.5 px-4 w-[15%]">Lokasi</th>
               <th className="py-3.5 px-3 text-center w-[8%]">Aksi</th>
             </tr>
           </thead>
@@ -59,12 +60,22 @@ export const DokumenTable: React.FC<DokumenTableProps> = ({
             {dokumen.map((item, idx) => {
               const isEven = idx % 2 === 1;
 
-              // Format desa dan kecamatan
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const rawItem = item as any;
-              const desaNama = item.desa_nama || rawItem.desa?.nama || '-';
-              const kecNama = item.kecamatan_nama || rawItem.desa?.kecamatan?.nama || '-';
-              const lokasiLengkapStr = item.lokasi?.lokasi_lengkap || rawItem.lokasi_lengkap || '';
+              // Nomor DI-302 & tanggal
+              const noDi302 = item.nomor_di302 || item.nomor_gu || '-';
+              const tglStr = formatTanggal(item.tanggal_masuk);
+              const desaNama = item.desa_nama || (item as any).desa?.nama || '-';
+              const kecNama = item.kecamatan_nama || (item as any).kecamatan?.nama || (item as any).desa?.kecamatan?.nama || '-';
+
+              // Lokasi display
+              const rakKode = item.rak_kode || (item as any).rak?.kode || 'E';
+              const tktStr = item.tingkat ? ` Tkt.${item.tingkat}` : '';
+              const lokasiDisplay = `Rak ${rakKode}${tktStr} → Album ${item.nomor_album || '-'}`;
+
+              // Jenis permohonan text & tooltip
+              const jenis = item.jenis_permohonan || (item as any).jenis_dokumen || '-';
+              const jenisShort = jenis.length > 25 ? jenis.substring(0, 23) + '...' : jenis;
+
+              const status = item.status_berkas || (item as any).status_fisik || 'PROSES';
 
               return (
                 <tr
@@ -78,89 +89,95 @@ export const DokumenTable: React.FC<DokumenTableProps> = ({
                     {idx + 1}
                   </td>
 
-                  {/* Kolom Nomor GU */}
+                  {/* Kolom No. DI-302 */}
                   <td className="py-3 px-4 font-mono font-bold text-primary">
-                    {item.nomor_gu}
+                    <span title="Nomor DI-302 identik dengan Nomor GU">{noDi302}</span>
                     <div className="text-[10px] text-text-secondary font-sans font-normal">
-                      Tahun {item.tahun} • {item.jenis_dokumen}
+                      Urut #{item.nomor_urut || '-'} • {tglStr}
                     </div>
                   </td>
 
-                  {/* Kolom NIB */}
-                  <td className="py-3 px-4 font-mono font-semibold text-text-main">
-                    {item.nib}
+                  {/* Kolom Album */}
+                  <td className="py-3 px-3 font-semibold text-text-main">
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-accent-gold flex-shrink-0" />
+                      <span>Album {item.nomor_album}</span>
+                    </div>
+                    <div className="text-[10px] text-text-secondary">
+                      Rak {rakKode}
+                    </div>
                   </td>
 
-                  {/* Kolom Nama Pemilik */}
-                  <td className="py-3 px-4 font-semibold text-text-main truncate max-w-[180px]">
-                    {item.nama_pemilik}
+                  {/* Kolom Nama Pemohon */}
+                  <td className="py-3 px-4 font-semibold text-text-main truncate max-w-[160px]" title={item.nama_pemohon}>
+                    {item.nama_pemohon || (item as any).nama_pemilik || '-'}
+                  </td>
+
+                  {/* Kolom Jenis Permohonan */}
+                  <td className="py-3 px-4 text-text-main" title={jenis}>
+                    <span className="font-medium text-xs">{jenisShort}</span>
                   </td>
 
                   {/* Kolom Desa/Kecamatan */}
                   <td className="py-3 px-4">
-                    <div className="font-semibold text-text-main">{desaNama}</div>
-                    <div className="text-[11px] text-text-secondary">Kec. {kecNama}</div>
+                    <div className="font-semibold text-text-main truncate max-w-[130px]" title={desaNama}>
+                      {desaNama}
+                    </div>
+                    <div className="text-[10px] text-text-secondary truncate max-w-[130px]" title={kecNama}>
+                      {kecNama}
+                    </div>
                   </td>
 
-                  {/* Kolom Status Fisik */}
-                  <td className="py-3 px-3">
-                    {onUpdateStatus ? (
-                      <button
-                        type="button"
-                        onClick={() => onUpdateStatus(item)}
-                        title="Klik untuk perbarui status fisik dokumen"
-                        className="transition-transform hover:scale-105 focus:outline-hidden"
-                      >
-                        <Badge variant={item.status_fisik} size="sm" />
-                      </button>
-                    ) : (
-                      <Badge variant={item.status_fisik} size="sm" />
-                    )}
+                  {/* Kolom Status Berkas */}
+                  <td className="py-3 px-3 text-center">
+                    <span
+                      className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getStatusColor(
+                        status
+                      )}`}
+                    >
+                      {getStatusLabel(status)}
+                    </span>
                   </td>
 
                   {/* Kolom Lokasi Fisik */}
                   <td className="py-3 px-4">
-                    <LokasiDisplay
-                      lokasi={item.lokasi}
-                      lokasiLengkap={lokasiLengkapStr}
-                      size="compact"
-                    />
+                    <div className="inline-flex items-center gap-1 bg-[#FFF8E1] border border-accent/60 rounded px-2 py-0.5 text-[11px] font-semibold text-primary-dark" title={item.lokasi_lengkap || lokasiDisplay}>
+                      <MapPin className="w-3 h-3 text-accent flex-shrink-0" />
+                      <span className="truncate max-w-[150px]">{lokasiDisplay}</span>
+                    </div>
                   </td>
 
-                  {/* Kolom Tombol Aksi */}
+                  {/* Kolom Aksi */}
                   <td className="py-3 px-3 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      {/* Tombol Detail */}
+                    <div className="flex items-center justify-center gap-1">
                       <button
                         type="button"
                         onClick={() => onDetail(item)}
-                        title="Lihat Detail Lengkap Dokumen"
-                        className="p-1.5 rounded-lg border border-primary/20 text-primary hover:bg-primary hover:text-white transition-colors"
+                        className="p-1.5 rounded-md text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Lihat Detail Berkas"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Tombol Update Status */}
+                      <button
+                        type="button"
+                        onClick={() => onPindah(item)}
+                        className="p-1.5 rounded-md text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+                        title="Pindah Lokasi Album"
+                      >
+                        <MoveRight className="w-3.5 h-3.5" />
+                      </button>
+
                       {onUpdateStatus && (
                         <button
                           type="button"
                           onClick={() => onUpdateStatus(item)}
-                          title="Perbarui Status Fisik Dokumen"
-                          className="p-1.5 rounded-lg border border-amber-500/30 text-amber-600 hover:bg-amber-500 hover:text-white transition-colors"
+                          className="p-1.5 rounded-md text-text-secondary hover:text-green-600 hover:bg-green-50 transition-colors"
+                          title="Perbarui Status Berkas"
                         >
-                          <RefreshCw className="w-4 h-4" />
+                          <RefreshCw className="w-3.5 h-3.5" />
                         </button>
                       )}
-
-                      {/* Tombol Pindah Rak */}
-                      <button
-                        type="button"
-                        onClick={() => onPindah(item)}
-                        title="Pindahkan Lokasi Fisik Dokumen"
-                        className="p-1.5 rounded-lg border border-accent-dark/40 text-primary-dark hover:bg-accent/40 transition-colors"
-                      >
-                        <MoveRight className="w-4 h-4 text-accent-dark" />
-                      </button>
                     </div>
                   </td>
                 </tr>

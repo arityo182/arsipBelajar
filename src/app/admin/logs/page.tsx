@@ -24,9 +24,13 @@ interface LogItem {
   } | null;
   dokumen: {
     id: number;
-    nomor_gu: string;
-    nib: string;
-    nama_pemilik: string;
+    nomor_di302?: string;
+    nama_pemohon?: string;
+    nomor_album?: number;
+    nomor_urut?: number;
+    nomor_gu?: string;
+    nib?: string;
+    nama_pemilik?: string;
   } | null;
 }
 
@@ -97,7 +101,7 @@ export default function AdminLogsPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Cari Nomor GU atau Nama Petugas..."
+            placeholder="Cari Nomor DI-302, Nama Pemohon, atau Petugas..."
             className="w-full pl-9 pr-3.5 py-2 text-xs rounded-lg border border-border-color focus:border-primary focus:outline-none"
           />
         </div>
@@ -107,8 +111,8 @@ export default function AdminLogsPage() {
           <Filter className="w-3.5 h-3.5 text-text-secondary mr-1 hidden sm:block" />
           {[
             { label: 'Semua Aksi', val: 'ALL' },
-            { label: 'Tambah Dokumen', val: 'TAMBAH' },
-            { label: 'Pindah Rak', val: 'PINDAH' },
+            { label: 'Tambah Berkas', val: 'TAMBAH' },
+            { label: 'Pindah Album', val: 'PINDAH' },
             { label: 'Update Status', val: 'STATUS' },
           ].map((tab) => (
             <button
@@ -146,7 +150,7 @@ export default function AdminLogsPage() {
                 <tr className="bg-primary-dark text-white font-bold uppercase tracking-wider">
                   <th className="py-3.5 px-4 w-[18%]">Waktu Kejadian</th>
                   <th className="py-3.5 px-4 w-[15%]">Petugas</th>
-                  <th className="py-3.5 px-4 w-[15%]">Nomor GU</th>
+                  <th className="py-3.5 px-4 w-[15%]">Nomor DI-302</th>
                   <th className="py-3.5 px-3 w-[14%]">Aksi</th>
                   <th className="py-3.5 px-4 w-[38%]">Rincian Perubahan</th>
                 </tr>
@@ -173,7 +177,12 @@ export default function AdminLogsPage() {
                       </td>
 
                       <td className="py-3 px-4 font-mono font-bold text-primary">
-                        {item.dokumen?.nomor_gu || '-'}
+                        {item.dokumen?.nomor_di302 || item.dokumen?.nomor_gu || '-'}
+                        {item.dokumen?.nama_pemohon && (
+                          <div className="text-[10px] font-sans font-normal text-text-secondary truncate max-w-[140px]">
+                            {item.dokumen.nama_pemohon}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3 px-3">

@@ -1,27 +1,33 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, X, FileText, CheckCircle, Clock, Building } from 'lucide-react';
-import { Dokumen, DokumenDetail, ApiResponse } from '@/types';
+import { Search, X, FileText, CheckCircle, Clock, BookOpen, RotateCcw, BarChart3 } from 'lucide-react';
+import { Dokumen, DokumenDetail, ApiResponse, StatAlbum, StatJenisPermohonan } from '@/types';
 import { useDokumen } from '@/hooks/useDokumen';
 import { useDebounce } from '@/hooks/useDebounce';
 import { get } from '@/lib/api';
 import DokumenTable from '@/components/dokumen/DokumenTable';
 import Pagination from '@/components/ui/Pagination';
 import DokumenDetailModal from '@/components/dokumen/DokumenDetailModal';
-import PindahRakModal from '@/components/dokumen/PindahRakModal';
+import PindahAlbumModal from '@/components/dokumen/PindahAlbumModal';
 import UpdateStatusModal from '@/components/dokumen/UpdateStatusModal';
-import PrintLabel from '@/components/dokumen/PrintLabel';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
   const [searchInput, setSearchInput] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [albumFilter, setAlbumFilter] = useState<string>('');
+  const [jenisFilter, setJenisFilter] = useState<string>('');
   const [page, setPage] = useState<number>(1);
+
   const debouncedSearch = useDebounce(searchInput, 300);
 
-  // Hook data fetching dengan AbortController
+  // Hook data fetching dengan filter lengkap
   const { dokumen, meta, isLoading, refetch } = useDokumen({
     search: debouncedSearch,
+    status_berkas: statusFilter || undefined,
+    nomor_album: albumFilter ? parseInt(albumFilter) : undefined,
+    jenis_permohonan: jenisFilter || undefined,
     page,
     per_page: 15,
   });
@@ -33,7 +39,39 @@ export default function DashboardPage() {
   const [showPindahModal, setShowPindahModal] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
 
-  // Fetch Dokumen Detail saat modal detail dibuka
+  // Statistik Real-time dari backend
+  const [statsAlbum, setStatsAlbum] = useState<StatAlbum[]>([]);
+  const [statsJenis, setStatsJenis] = useState<StatJenisPermohonan[]>([]);
+
+  const [ringkasan, setRingkasan] = useState({
+    total: 120,
+    tersedia: 93,
+    hilang: 27,
+    dipinjam: 0,
+    rusak: 0,
+  });
+
+  const fetchStatistik = async () => {
+    try {
+      const [resAlbum, resJenis, resRingkasan] = await Promise.all([
+        get<ApiResponse<StatAlbum[]>>('/statistik/album'),
+        get<ApiResponse<StatJenisPermohonan[]>>('/statistik/jenis-permohonan'),
+        get<ApiResponse<any>>('/statistik/ringkasan').catch(() => ({ data: null })),
+      ]);
+      setStatsAlbum(resAlbum.data || []);
+      setStatsJenis(resJenis.data || []);
+      if (resRingkasan?.data) {
+        setRingkasan(resRingkasan.data);
+      }
+    } catch {
+      // Background statistics failure handled silently
+    }
+  };
+
+  useEffect(() => {
+    fetchStatistik();
+  }, []);
+
   const handleOpenDetail = async (doc: Dokumen) => {
     setSelectedDokumen(doc);
     setShowDetailModal(true);
@@ -57,199 +95,337 @@ export default function DashboardPage() {
 
   const handlePindahSuccess = async () => {
     await refetch();
+    await fetchStatistik();
     if (selectedDokumen) {
       try {
         const res = await get<ApiResponse<DokumenDetail>>(`/dokumen/${selectedDokumen.id}`);
         setDetailData(res.data);
       } catch {
-        // Abaikan
+        // Ignored
       }
     }
   };
 
   const handleStatusSuccess = async () => {
     await refetch();
+    await fetchStatistik();
     const docId = selectedDokumen?.id || detailData?.id;
     if (docId) {
       try {
         const res = await get<ApiResponse<DokumenDetail>>(`/dokumen/${docId}`);
         setDetailData(res.data);
       } catch {
-        // Abaikan
+        // Ignored
       }
     }
   };
 
-  const handlePrint = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
+  const handleResetFilter = () => {
+    setSearchInput('');
+    setStatusFilter('');
+    setAlbumFilter('');
+    setJenisFilter('');
+    setPage(1);
   };
 
-  // Statistik mini dihitung dari data aktif
-  const totalCount = meta?.total || dokumen.length;
-  const tersediaCount = dokumen.filter((d) => d.status_fisik === 'TERSEDIA').length;
-  const dipinjamCount = dokumen.filter((d) => d.status_fisik === 'DIPINJAM').length;
+  // Ringkasan global kalkulasi dari statsAlbum
+  const totalBerkasAll = statsAlbum.reduce((acc, curr) => acc + curr.total, 0);
+  const totalSelesaiAll = statsAlbum.reduce((acc, curr) => acc + curr.selesai, 0);
+  const totalProsesAll = statsAlbum.reduce((acc, curr) => acc + curr.proses, 0);
+  const totalAlbumAll = statsAlbum.length || 4;
 
   return (
     <div className="space-y-6 font-sans">
-      {/* 1. KOTAK PENCARIAN UTAMA */}
-      <div id="search" className="bg-white p-6 rounded-2xl border border-border-color shadow-sm">
-        <div className="flex items-center justify-between mb-2">
+      {/* 1. KOTAK PENCARIAN & FILTER MULTI-LEVEL */}
+      <div id="search" className="bg-white p-6 rounded-2xl border border-border-color shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-primary-dark font-sans flex items-center gap-2">
             <Search className="w-4 h-4 text-primary" />
-            <span>Cari Dokumen Pertanahan</span>
+            Pencarian & Filter Berkas DI-302
           </h2>
-          <span className="text-xs text-text-secondary">Kantah Kab. Banyumas</span>
+          <span className="text-xs text-text-secondary">
+            Nomor DI-302 identik dengan Nomor GU (Buku Register Pengukuran)
+          </span>
         </div>
 
-        <div className="relative mt-2">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-secondary">
-            <Search className="w-5 h-5 text-primary" />
-          </div>
-
+        {/* Input Bar */}
+        <div className="relative">
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Ketik Nomor GU (misal: GU-0101/2021), NIB (3302...), atau Nama Pemilik tanah..."
-            autoFocus
-            className="w-full pl-12 pr-12 h-[52px] text-base rounded-xl border-2 border-border-color focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-sans"
+            placeholder="Cari No. DI-302, Nama Pemohon, atau Nomor Berkas..."
+            className="w-full pl-11 pr-10 py-3 text-sm bg-gray-50/70 border border-border-color rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-text-main placeholder:text-text-secondary/70 font-sans"
           />
-
+          <Search className="w-5 h-5 text-text-secondary absolute left-3.5 top-3.5 pointer-events-none" />
           {searchInput && (
             <button
               type="button"
               onClick={() => setSearchInput('')}
-              className="absolute inset-y-0 right-0 pr-4 flex items-center text-text-secondary hover:text-text-main"
+              className="absolute right-3.5 top-3.5 text-text-secondary hover:text-text-main p-0.5 rounded-full hover:bg-gray-200"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center justify-between text-xs text-text-secondary mt-2 px-1">
-          <span>Pencarian otomatis berjalan secara real-time saat Anda mengetik.</span>
-          <span className="hidden sm:inline font-mono">Tip: Cari NIB dengan 11 digit angka</span>
+        {/* Filter Dropdown Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+          {/* Filter Status */}
+          <div>
+            <label className="block text-[11px] font-semibold text-text-secondary mb-1">Status Fisik</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full py-2 px-3 text-xs bg-white border border-border-color rounded-lg focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-main"
+            >
+              <option value="">Semua Status</option>
+              <option value="TERSEDIA">Tersedia di Album</option>
+              <option value="HILANG">Belum Ada / Hilang</option>
+              <option value="DIPINJAM">Sedang Dipinjam</option>
+              <option value="RUSAK">Dalam Perbaikan</option>
+            </select>
+          </div>
+
+          {/* Filter Album */}
+          <div>
+            <label className="block text-[11px] font-semibold text-text-secondary mb-1">Album Penyimpanan</label>
+            <select
+              value={albumFilter}
+              onChange={(e) => {
+                setAlbumFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full py-2 px-3 text-xs bg-white border border-border-color rounded-lg focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-main"
+            >
+              <option value="">Semua Album</option>
+              <option value="1">Album 1 (Rak E)</option>
+              <option value="2">Album 2 (Rak E)</option>
+              <option value="3">Album 3 (Rak E)</option>
+              <option value="4">Album 4 (Rak E)</option>
+            </select>
+          </div>
+
+          {/* Filter Jenis Permohonan */}
+          <div>
+            <label className="block text-[11px] font-semibold text-text-secondary mb-1">Jenis Permohonan</label>
+            <select
+              value={jenisFilter}
+              onChange={(e) => {
+                setJenisFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full py-2 px-3 text-xs bg-white border border-border-color rounded-lg focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-main truncate"
+            >
+              <option value="">Semua Jenis</option>
+              <option value="Pengukuran Dan Pemetaan">Pengukuran Dan Pemetaan</option>
+              <option value="Pengukuran Ulang Dan Pemetaan">Pengukuran Ulang Dan Pemetaan</option>
+              <option value="Pemecahan Bidang">Pemecahan Bidang</option>
+              <option value="Pendaftaran Tanah Pertama Kali">Pendaftaran Tanah Pertama Kali</option>
+            </select>
+          </div>
+
+          {/* Tombol Reset */}
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={handleResetFilter}
+              className="w-full py-2 px-3 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-text-main border border-border-color rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Filter
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 2. STATISTIK MINI REAL-TIME */}
-      {totalCount > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3.5">
-            <div className="p-2.5 rounded-lg bg-blue-50 text-primary">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-lg font-black text-text-main font-sans">{totalCount}</div>
-              <div className="text-xs text-text-secondary">Total Dokumen</div>
-            </div>
+      {/* 2. STATISTIK CARDS (4 KARTU STATUS FISIK) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Berkas */}
+        <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-blue-50 text-blue-600">
+            <FileText className="w-5 h-5" />
           </div>
-
-          <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3.5">
-            <div className="p-2.5 rounded-lg bg-green-50 text-green-700">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-lg font-black text-green-700 font-sans">{tersediaCount}</div>
-              <div className="text-xs text-text-secondary">Status Tersedia</div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3.5">
-            <div className="p-2.5 rounded-lg bg-amber-50 text-amber-700">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-lg font-black text-amber-700 font-sans">{dipinjamCount}</div>
-              <div className="text-xs text-text-secondary">Sedang Dipinjam</div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3.5">
-            <div className="p-2.5 rounded-lg bg-purple-50 text-purple-700">
-              <Building className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-lg font-black text-purple-700 font-sans">2 Ruang</div>
-              <div className="text-xs text-text-secondary">Ruang Arsip Aktif</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. TABEL DAFTAR DOKUMEN ARSIP */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-primary-dark font-sans">
-              {debouncedSearch ? 'Hasil Pencarian' : 'Daftar Dokumen Terbaru'}
-            </h3>
-            <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
-              {totalCount} dokumen
+          <div>
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block">
+              Total Berkas
+            </span>
+            <span className="text-xl font-bold text-primary-dark">
+              {ringkasan.total || meta?.total || dokumen.length}
             </span>
           </div>
         </div>
 
-        <DokumenTable
-          dokumen={dokumen}
-          isLoading={isLoading}
-          onDetail={handleOpenDetail}
-          onPindah={handleOpenPindah}
-          onUpdateStatus={handleOpenStatus}
-        />
-
-        {/* Paginasi Navigasi */}
-        {meta && meta.last_page > 1 && (
-          <div className="bg-white rounded-xl border border-border-color shadow-2xs">
-            <Pagination
-              currentPage={meta.current_page}
-              lastPage={meta.last_page}
-              onPageChange={(p) => setPage(p)}
-              isLoading={isLoading}
-            />
+        {/* Fisik Tersedia */}
+        <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-600">
+            <CheckCircle className="w-5 h-5" />
           </div>
-        )}
+          <div>
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block">
+              Fisik Tersedia
+            </span>
+            <span className="text-xl font-bold text-emerald-700">
+              {ringkasan.tersedia}
+            </span>
+          </div>
+        </div>
+
+        {/* Belum Ada / Hilang */}
+        <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-rose-50 text-rose-600">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block">
+              Belum Ditemukan
+            </span>
+            <span className="text-xl font-bold text-rose-700">
+              {ringkasan.hilang}
+            </span>
+          </div>
+        </div>
+
+        {/* Dipinjam / Rusak */}
+        <div className="bg-white p-4 rounded-xl border border-border-color shadow-2xs flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-amber-50 text-amber-600">
+            <BookOpen className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block">
+              Dipinjam / Rusak
+            </span>
+            <span className="text-xl font-bold text-amber-700">
+              {ringkasan.dipinjam + ringkasan.rusak}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* 4. MODALS INTERAKTIF */}
-      <DokumenDetailModal
-        dokumen={detailData}
-        isOpen={showDetailModal}
-        onClose={() => {
-          setShowDetailModal(false);
-          setDetailData(null);
-        }}
-        onPindah={() => {
-          setShowDetailModal(false);
-          if (selectedDokumen) setShowPindahModal(true);
-        }}
-        onUpdateStatus={() => {
-          if (detailData || selectedDokumen) {
-            setShowStatusModal(true);
-          }
-        }}
-        onRefresh={refetch}
-        onPrint={handlePrint}
+      {/* 3. TABEL DATA HASIL FILTER */}
+      <DokumenTable
+        dokumen={dokumen}
+        isLoading={isLoading}
+        onDetail={handleOpenDetail}
+        onPindah={handleOpenPindah}
+        onUpdateStatus={handleOpenStatus}
       />
 
-      <PindahRakModal
-        dokumen={selectedDokumen}
+      {/* 4. PAGINASI */}
+      {meta && meta.last_page > 1 && (
+        <Pagination
+          currentPage={page}
+          lastPage={meta.last_page}
+          onPageChange={(newPage) => setPage(newPage)}
+        />
+      )}
+
+      {/* 5. GRAFIK & TABEL REKAPITULASI RESMI */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+        {/* Rekapitulasi per Album */}
+        <div className="bg-white p-5 rounded-2xl border border-border-color shadow-sm">
+          <h3 className="text-sm font-bold text-primary-dark mb-3 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            Rekapitulasi Berkas per Album Fisik (Rak E)
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-100 text-text-main font-bold border-b border-border-color">
+                  <th className="py-2 px-3">Album</th>
+                  <th className="py-2 px-2 text-center">Rak</th>
+                  <th className="py-2 px-2 text-center">Total</th>
+                  <th className="py-2 px-2 text-center text-green-700">Selesai</th>
+                  <th className="py-2 px-2 text-center text-yellow-700">Proses</th>
+                  <th className="py-2 px-3 text-right">% Selesai</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {statsAlbum.map((alb) => (
+                  <tr key={alb.nomor_album} className="hover:bg-gray-50/80">
+                    <td className="py-2.5 px-3 font-semibold text-primary">Album {alb.nomor_album}</td>
+                    <td className="py-2.5 px-2 text-center">{alb.rak_kode}</td>
+                    <td className="py-2.5 px-2 text-center font-bold">{alb.total}</td>
+                    <td className="py-2.5 px-2 text-center text-green-700 font-semibold">{alb.selesai}</td>
+                    <td className="py-2.5 px-2 text-center text-yellow-700 font-semibold">{alb.proses}</td>
+                    <td className="py-2.5 px-3 text-right">
+                      <span className="inline-block px-2 py-0.5 rounded bg-green-50 text-green-700 font-bold">
+                        {alb.persentase_selesai}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Rekapitulasi per Jenis Permohonan */}
+        <div className="bg-white p-5 rounded-2xl border border-border-color shadow-sm">
+          <h3 className="text-sm font-bold text-primary-dark mb-3 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            Rekapitulasi per Jenis Permohonan Pengukuran
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-100 text-text-main font-bold border-b border-border-color">
+                  <th className="py-2 px-3">Jenis Permohonan</th>
+                  <th className="py-2 px-3 text-center">Jumlah</th>
+                  <th className="py-2 px-3 text-right">Persentase</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {statsJenis.map((item) => (
+                  <tr key={item.jenis_permohonan} className="hover:bg-gray-50/80">
+                    <td className="py-2.5 px-3 font-medium text-text-main">{item.jenis_permohonan}</td>
+                    <td className="py-2.5 px-3 text-center font-bold">{item.jumlah} berkas</td>
+                    <td className="py-2.5 px-3 text-right">
+                      <span className="inline-block px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">
+                        {item.persentase}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL 1: Detail Berkas DI-302 */}
+      <DokumenDetailModal
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        dokumen={detailData || (selectedDokumen as any)}
+        onPindah={() => {
+          setShowDetailModal(false);
+          setShowPindahModal(true);
+        }}
+        onUpdateStatus={() => {
+          setShowDetailModal(false);
+          setShowStatusModal(true);
+        }}
+      />
+
+      {/* MODAL 2: Pindah Lokasi Album */}
+      <PindahAlbumModal
         isOpen={showPindahModal}
         onClose={() => setShowPindahModal(false)}
+        dokumen={detailData || selectedDokumen}
         onSuccess={handlePindahSuccess}
       />
 
+      {/* MODAL 3: Update Status Berkas */}
       <UpdateStatusModal
-        dokumen={detailData || selectedDokumen}
         isOpen={showStatusModal}
         onClose={() => setShowStatusModal(false)}
+        dokumen={detailData || selectedDokumen}
         onSuccess={handleStatusSuccess}
       />
-
-      {/* Komponen Khusus Print Thermal/A4 */}
-      <PrintLabel dokumen={detailData} />
     </div>
   );
 }

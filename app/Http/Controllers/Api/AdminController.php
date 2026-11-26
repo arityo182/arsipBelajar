@@ -145,18 +145,20 @@ class AdminController extends Controller
     {
         $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
         $search  = trim((string) $request->query('search', ''));
+        $escapedSearch = addcslashes($search, '%_\\');
 
-        $query = LogAktivitas::with(['user:id,nama,username,role', 'dokumen:id,nomor_gu,nama_pemilik,nib']);
+        $query = LogAktivitas::with(['user:id,nama,username,role', 'dokumen:id,nomor_di302,nama_pemohon,nomor_album,nomor_urut']);
 
         if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('dokumen', function ($docQ) use ($search) {
-                    $docQ->where('nomor_gu', 'ILIKE', "%{$search}%");
-                })->orWhereHas('user', function ($userQ) use ($search) {
-                    $userQ->where('nama', 'ILIKE', "%{$search}%")
-                          ->orWhere('username', 'ILIKE', "%{$search}%");
-                })->orWhere('aksi', 'ILIKE', "%{$search}%")
-                  ->orWhere('detail', 'ILIKE', "%{$search}%");
+            $query->where(function ($q) use ($escapedSearch) {
+                $q->whereHas('dokumen', function ($docQ) use ($escapedSearch) {
+                    $docQ->where('nomor_di302', 'ILIKE', "%{$escapedSearch}%")
+                         ->orWhere('nama_pemohon', 'ILIKE', "%{$escapedSearch}%");
+                })->orWhereHas('user', function ($userQ) use ($escapedSearch) {
+                    $userQ->where('nama', 'ILIKE', "%{$escapedSearch}%")
+                          ->orWhere('username', 'ILIKE', "%{$escapedSearch}%");
+                })->orWhere('aksi', 'ILIKE', "%{$escapedSearch}%")
+                  ->orWhere('detail', 'ILIKE', "%{$escapedSearch}%");
             });
         }
 
@@ -176,9 +178,10 @@ class AdminController extends Controller
                 ] : null,
                 'dokumen'    => $log->dokumen ? [
                     'id'           => $log->dokumen->id,
-                    'nomor_gu'     => $log->dokumen->nomor_gu,
-                    'nib'          => $log->dokumen->nib,
-                    'nama_pemilik' => $log->dokumen->nama_pemilik,
+                    'nomor_di302'  => $log->dokumen->nomor_di302,
+                    'nama_pemohon' => $log->dokumen->nama_pemohon,
+                    'nomor_album'  => $log->dokumen->nomor_album,
+                    'nomor_urut'   => $log->dokumen->nomor_urut,
                 ] : null,
             ];
         });

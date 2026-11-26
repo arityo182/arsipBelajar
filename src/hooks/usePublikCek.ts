@@ -10,6 +10,8 @@ export function usePublikCek() {
   const [sudahDicari, setSudahDicari] = useState(false);
 
   const cari = async (params: {
+    nomor_di302?: string;
+    nama_pemohon?: string;
     nomor_gu?: string;
     nib?: string;
   }) => {
@@ -22,8 +24,8 @@ export function usePublikCek() {
         `${baseUrl}/publik/cek`,
         { params }
       );
-      setHasil(res.data.data);
-      setCatatan(res.data.catatan);
+      setHasil(res.data.data || []);
+      setCatatan(res.data.catatan || '');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 429) {

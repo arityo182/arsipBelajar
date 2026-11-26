@@ -19,65 +19,107 @@ export const loginSchema = z.object({
     .min(6, 'Minimal 6 karakter'),
 });
 
+export type LoginFormData = z.infer<typeof loginSchema>;
+
 /**
- * Skema validasi penambahan dan pengeditan dokumen pertanahan
+ * Skema validasi penambahan dan pengeditan berkas DI-302
  */
 export const dokumenSchema = z.object({
-  nomor_gu: z
+  nomor_di302: z
     .string()
-    .min(1, 'Nomor GU wajib diisi')
-    .max(30, 'Maksimal 30 karakter')
-    .regex(/^[A-Z0-9\-/]+$/i, 'Hanya huruf, angka, strip, dan garis miring'),
+    .min(1, 'Nomor DI-302 wajib diisi')
+    .max(20, 'Maksimal 20 digit')
+    .regex(/^[1-9][0-9]*$/, 'Nomor DI-302 harus angka positif tanpa huruf, simbol, atau nol di depan'),
+  nomor_album: z.coerce
+    .number({ invalid_type_error: 'Pilih album penyimpanan' })
+    .positive('Pilih album yang valid'),
+  nomor_urut: z.coerce
+    .number({ invalid_type_error: 'Nomor urut harus berupa angka' })
+    .min(1, 'Nomor urut minimal 1')
+    .max(30, 'Nomor urut maksimal 30'),
+  tanggal_masuk: z
+    .string()
+    .min(1, 'Tanggal masuk wajib diisi'),
   tahun: z.coerce
-    .number({ invalid_type_error: 'Tahun harus berupa angka' })
-    .min(1945, 'Tahun minimal 1945')
-    .max(new Date().getFullYear(), 'Tahun tidak boleh lebih dari tahun ini'),
-  nib: z
+    .number()
+    .optional(),
+  nama_pemohon: z
     .string()
-    .min(1, 'NIB wajib diisi')
-    .max(20, 'Maksimal 20 karakter')
-    .regex(/^\d+$/, 'NIB hanya boleh berisi angka'),
-  jenis_dokumen: z.enum(['Sertipikat', 'GU', 'SU', 'Warkah', 'IPT', 'Lainnya'], {
-    required_error: 'Pilih jenis dokumen',
+    .min(3, 'Nama pemohon minimal 3 karakter')
+    .max(100, 'Nama pemohon maksimal 100 karakter'),
+  jenis_permohonan: z.enum([
+    'Pengukuran Dan Pemetaan',
+    'Pengukuran Ulang Dan Pemetaan',
+    'Pemecahan Bidang',
+    'Pendaftaran Tanah Pertama Kali'
+  ], {
+    required_error: 'Pilih jenis permohonan',
   }),
-  nama_pemilik: z
-    .string()
-    .min(3, 'Minimal 3 karakter')
-    .max(100, 'Maksimal 100 karakter')
-    .regex(/^[a-zA-Z\s]+$/, 'Nama hanya boleh huruf dan spasi'),
   desa_id: z.coerce
     .number({ required_error: 'Pilih desa' })
     .positive('Pilih desa yang valid'),
-  boks_id: z.coerce
-    .number({ required_error: 'Pilih lokasi boks' })
-    .positive('Pilih lokasi boks yang valid'),
+  kecamatan_id: z.coerce
+    .number()
+    .optional(),
+  rak_id: z.coerce
+    .number({ required_error: 'Pilih rak penyimpanan' })
+    .positive('Pilih rak yang valid'),
+  tingkat: z.string().max(10).optional().nullable(),
+  posisi: z.string().max(10).optional().nullable(),
+  keterangan: z.string().optional().nullable(),
+  catatan: z.string().optional().nullable(),
+  status_berkas: z.string().default('TERSEDIA'),
+  status_fisik: z.string().optional().default('TERSEDIA'),
+
+  // Fallback field lama agar kompatibel
+  nomor_gu: z.string().optional(),
+  nama_pemilik: z.string().optional(),
+  jenis_dokumen: z.string().optional(),
+  boks_id: z.coerce.number().optional(),
+  nib: z.string().optional(),
 });
 
+export type DokumenFormData = z.infer<typeof dokumenSchema>;
+
 /**
- * Skema validasi mutasi pemindahan dokumen ke boks baru
+ * Skema validasi mutasi pemindahan dokumen ke album baru
  */
-export const pindahRakSchema = z.object({
-  boks_id_baru: z.coerce
-    .number({ required_error: 'Pilih boks tujuan' })
-    .positive('Pilih boks tujuan yang valid'),
+export const pindahAlbumSchema = z.object({
+  nomor_album_baru: z.coerce
+    .number({ required_error: 'Pilih album tujuan' })
+    .positive('Pilih album tujuan yang valid'),
+  rak_id_baru: z.coerce
+    .number()
+    .optional(),
+  nomor_urut_baru: z.coerce
+    .number()
+    .optional(),
+  tingkat_baru: z.string().max(10).optional().nullable(),
+  posisi_baru: z.string().max(10).optional().nullable(),
   alasan: z
     .string()
-    .min(10, 'Alasan minimal 10 karakter')
+    .min(5, 'Alasan minimal 5 karakter')
     .max(255, 'Alasan maksimal 255 karakter'),
 });
 
+export type PindahAlbumFormData = z.infer<typeof pindahAlbumSchema>;
+export const pindahRakSchema = pindahAlbumSchema; // alias
+
 /**
- * Skema validasi pembaruan status fisik dokumen pertanahan
+ * Skema validasi pembaruan status berkas dokumen pertanahan
  */
 export const updateStatusSchema = z.object({
-  status_fisik: z.enum(['TERSEDIA', 'DIPINJAM', 'RUSAK', 'HILANG'], {
-    required_error: 'Pilih status fisik dokumen',
+  status_berkas: z.enum(['TERSEDIA', 'HILANG', 'DIPINJAM', 'RUSAK', 'SELESAI', 'PROSES'], {
+    required_error: 'Pilih status berkas',
   }),
   keterangan: z
     .string()
     .max(255, 'Keterangan maksimal 255 karakter')
     .optional(),
+  status_fisik: z.string().optional(),
 });
+
+export type UpdateStatusFormData = z.infer<typeof updateStatusSchema>;
 
 /**
  * Skema validasi penambahan pengguna oleh Administrator
@@ -100,9 +142,4 @@ export const storeUserSchema = z.object({
   }),
 });
 
-// Type Inferences
-export type LoginFormData = z.infer<typeof loginSchema>;
-export type DokumenFormData = z.infer<typeof dokumenSchema>;
-export type PindahRakFormData = z.infer<typeof pindahRakSchema>;
-export type UpdateStatusFormData = z.infer<typeof updateStatusSchema>;
 export type StoreUserFormData = z.infer<typeof storeUserSchema>;
