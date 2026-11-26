@@ -110,7 +110,18 @@ jobs:
             cd ~/siplok
             test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
 
+            echo "=== Disk VPS sebelum pembersihan SIPLOK ==="
+            df -h /
+
+            # Hentikan container SIPLOK sementara (volume DB tetap aman tanpa -v),
+            # lalu hapus HANYA image lama milik SIPLOK agar image proyek lain tetap aman
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+            docker images --format "{{.Repository}}:{{.Tag}}" \
+              | grep -E "^(${DOCKERHUB_USERNAME}/)?siplok-(backend|frontend):" \
+              | grep -v ":${IMAGE_TAG}$" \
+              | xargs -r docker rmi -f || true
             docker image prune -f || true
+
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
             docker image prune -f || true
@@ -119,7 +130,7 @@ jobs:
 
             ok=0
             for i in $(seq 1 36); do
-              if curl -fsS "http://127.0.0.1:8002/api/publik/cek?nomor_gu=HEALTHCHECK" >/dev/null 2>&1 || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/api/publik/cek | grep -qE "200|422|429"; then
+              if curl -fsS "http://127.0.0.1:8002/api/publik/cek?nomor_di302=1" >/dev/null 2>&1 || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/api/publik/cek | grep -qE "200|422|429"; then
                 ok=1
                 echo "Backend staging sehat setelah ${i} percobaan"
                 break
@@ -175,7 +186,18 @@ jobs:
             cd ~/siplok
             test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
 
+            echo "=== Disk VPS sebelum pembersihan SIPLOK ==="
+            df -h /
+
+            # Hentikan container SIPLOK sementara (volume DB tetap aman tanpa -v),
+            # lalu hapus HANYA image lama milik SIPLOK agar image proyek lain tetap aman
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+            docker images --format "{{.Repository}}:{{.Tag}}" \
+              | grep -E "^(${DOCKERHUB_USERNAME}/)?siplok-(backend|frontend):" \
+              | grep -v ":${IMAGE_TAG}$" \
+              | xargs -r docker rmi -f || true
             docker image prune -f || true
+
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
             docker image prune -f || true
@@ -184,7 +206,7 @@ jobs:
 
             ok=0
             for i in $(seq 1 36); do
-              if curl -fsS "http://127.0.0.1:8002/api/publik/cek?nomor_gu=HEALTHCHECK" >/dev/null 2>&1 || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/api/publik/cek | grep -qE "200|422|429"; then
+              if curl -fsS "http://127.0.0.1:8002/api/publik/cek?nomor_di302=1" >/dev/null 2>&1 || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/api/publik/cek | grep -qE "200|422|429"; then
                 ok=1
                 echo "Backend production sehat setelah ${i} percobaan"
                 break
