@@ -15,6 +15,13 @@ return new class extends Migration
         // Drop check constraint lama jika ada
         DB::statement("ALTER TABLE dokumen DROP CONSTRAINT IF EXISTS chk_dokumen_status_fisik");
 
+        // Jika tabel masih memakai skema lama (nomor_gu) dan kolom DI-302 belum ada,
+        // bersihkan baris dummy lama terlebih dahulu agar penambahan kolom NOT NULL berhasil di PostgreSQL
+        if (Schema::hasColumn('dokumen', 'nomor_gu') && !Schema::hasColumn('dokumen', 'nomor_di302')) {
+            DB::table('log_aktivitas')->delete();
+            DB::table('dokumen')->delete();
+        }
+
         Schema::table('dokumen', function (Blueprint $table) {
             // Hapus foreign key & kolom lama jika ada
             if (Schema::hasColumn('dokumen', 'boks_id')) {

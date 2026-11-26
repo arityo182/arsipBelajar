@@ -48,6 +48,7 @@ services:
       JWT_TTL: ${JWT_TTL:-480}
     volumes:
       - siplok_backend_storage:/var/www/html/storage
+      - ./seed-data:/var/www/html/database/seeders/data:ro
     deploy:
       resources:
         limits:

@@ -109,6 +109,7 @@ jobs:
             set -euo pipefail
             cd ~/siplok
             test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
+            mkdir -p ~/siplok/seed-data
 
             echo "=== Disk VPS sebelum pembersihan SIPLOK ==="
             df -h /
@@ -126,7 +127,11 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
             docker image prune -f || true
 
-            docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=UserSeeder --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=KecamatanDesaSeeder --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=LokasiSeeder --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=DokumenSeeder --force || true
 
             ok=0
             for i in $(seq 1 36); do
@@ -185,6 +190,7 @@ jobs:
             set -euo pipefail
             cd ~/siplok
             test -f .env || { echo "ERROR: ~/siplok/.env belum ada"; exit 1; }
+            mkdir -p ~/siplok/seed-data
 
             echo "=== Disk VPS sebelum pembersihan SIPLOK ==="
             df -h /
@@ -202,7 +208,11 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
             docker image prune -f || true
 
-            docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=UserSeeder --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=KecamatanDesaSeeder --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=LokasiSeeder --force || true
+            docker compose -f docker-compose.prod.yml exec -T backend php artisan db:seed --class=DokumenSeeder --force || true
 
             ok=0
             for i in $(seq 1 36); do

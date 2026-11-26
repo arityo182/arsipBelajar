@@ -41,6 +41,14 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // Seluruh rute /api/* selalu mengembalikan JSON (tidak pernah HTML error page)
+        $exceptions->shouldRenderJsonWhen(function (Request $request, \Throwable $e) {
+            if ($request->is('api/*')) {
+                return true;
+            }
+            return $request->expectsJson();
+        });
+
         // Tangani Model Not Found atau 404 Route
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->is('api/*') || $request->wantsJson()) {
